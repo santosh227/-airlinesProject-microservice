@@ -1,4 +1,4 @@
-const Airplane = require('../models/AirPlaneModel');
+const Airplane = require('../models/AirPlanes');
 // POST AIRPLANE DATA 
 const createAirplane = async (req, res) => {
   try {

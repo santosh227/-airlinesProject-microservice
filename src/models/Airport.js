@@ -1,31 +1,28 @@
 const mongoose = require('mongoose');
 
-// Define the schema for an airport
-const AirportSchema = new mongoose.Schema({
-  // Name of the airport
-  name: {
-    type: String,
-    required: true
-  },
-  // Unique code for the airport
-  code: {
+const airportSchema = new mongoose.Schema({
+  airportName: {
     type: String,
     required: true,
-    unique: true
+    trim: true
   },
-  // Physical address of the airport
-  address: {
+  airportCode: {
     type: String,
-    required: true
+    required: true,
+    unique: true,
+    trim: true
   },
-  // Reference to the City (foreign key)
-  cityId: {
+  airportAddress: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  city: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "City",             // <--- Links to your City model
+    ref: "City",
     required: true
   }
 });
 
-// Create the Airport model
-const Airport = mongoose.model('Airport', AirportSchema);
+const Airport = mongoose.model('Airport', airportSchema);
 module.exports = Airport;

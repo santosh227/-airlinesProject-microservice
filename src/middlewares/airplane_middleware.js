@@ -1,4 +1,4 @@
-// ✅ Define and export the middleware directly
+
 const middleware_airplane = (req, res, next) => {
   const { model, capacity } = req.body;
 

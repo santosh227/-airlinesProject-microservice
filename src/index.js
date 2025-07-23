@@ -6,8 +6,8 @@ const connectToMongo = require('./utils/index');
 
 const app = express();
 
-app.use(express.json()); // Middleware to parse incoming JSON
-app.use(express.urlencoded({extends: true}))
+app.use(express.json());             // <-- This is the important line!
+app.use(express.urlencoded({ extended: true }));
 
 
 app.use('/api', apiRoutes); // Main API prefix

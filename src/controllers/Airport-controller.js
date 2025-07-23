@@ -1,5 +1,5 @@
-// controllers/airportController.js
-const Airport = require('../models/Airport');
+
+const Airport = require('../models/Airport')
 
 // CREATE
 exports.createAirport = async (req, res) => {

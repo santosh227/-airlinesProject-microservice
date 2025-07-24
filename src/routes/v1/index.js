@@ -6,6 +6,8 @@ const AirPlaneRoutes = require('./AirPlaneRoutes');
 const AirplaneCitiesRoute = require('./AirplaneCitiesRoute')
 const AirportRoute = require('./AirportRoute')
 
+const FlightRoute = require('./FlightRoute')
+
 
 
 const router = express.Router();
@@ -14,5 +16,6 @@ router.use('/airplane', AirPlaneRoutes); // All airplane-related routes
 router.use('/info', InfoRoutes);     // All info-related endpoints
 router.use('/cities',AirplaneCitiesRoute )  // all cities realated endpoints 
 router.use('/airports',AirportRoute)         // all airports releated endpoints 
+router.use('/flights',FlightRoute )          // all flights releated to endpoint --- POST 
 
 module.exports = router;

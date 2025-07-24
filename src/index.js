@@ -6,7 +6,7 @@ const connectToMongo = require('./utils/index');
 
 const app = express();
 
-app.use(express.json());             // <-- This is the important line!
+app.use(express.json());           
 app.use(express.urlencoded({ extended: true }));
 
 

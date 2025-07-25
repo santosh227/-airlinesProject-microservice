@@ -1,4 +1,4 @@
-const Flight = require('../models/Flight')
+const Flight = require("../models/Flight");
 
 // CREATE
 createFlight = async (req, res) => {
@@ -12,7 +12,7 @@ createFlight = async (req, res) => {
       departureTime,
       price,
       boardingGate,
-      totalSeats
+      totalSeats,
     } = req.body;
 
     const flightcreate = await Flight.create({
@@ -24,7 +24,7 @@ createFlight = async (req, res) => {
       departureTime,
       price,
       boardingGate,
-      totalSeats
+      totalSeats,
     });
 
     res.status(201).json({ success: true, data: flightcreate });
@@ -42,33 +42,21 @@ const getAllFlights = async (req, res) => {
   }
 };
 
-
-// Controller:
-// This function handles GET requests to /api/v1/flights
-// It can filter flights based on query parameters like ?trips=BOM-DEL, ?departureAirportId=DEL, etc.
-
 const getAllFlightsByFilter = async (req, res) => {
   try {
-    // 1. Create an empty filter object (will hold our search criteria)
     const filter = {};
 
-    // 2. Support searching with a trips param (e.g. ?trips=BOM-DEL)
-    //    This lets a user specify both the departure and arrival in one query param
     if (req.query.trips) {
-      // Split the trips string into two parts (e.g. BOM-DEL => ['BOM', 'DEL'])
       const [departure, arrival] = req.query.trips
-        .split('-')
-        .map(s => s.trim().toUpperCase()); // Remove spaces and make uppercase
+        .split("-")
+        .map((s) => s.trim().toUpperCase());
 
-      // If both codes exist, add them to the filter
       if (departure && arrival) {
         filter.departureAirportId = departure;
         filter.arrivalAirportId = arrival;
       }
     }
 
-    // 3. Support individual search params too (e.g. ?departureAirportId=DEL)
-    //    This is useful if you only want to filter by one value, or want flexibility
     if (req.query.departureAirportId) {
       filter.departureAirportId = req.query.departureAirportId.toUpperCase();
     }
@@ -77,24 +65,33 @@ const getAllFlightsByFilter = async (req, res) => {
       filter.arrivalAirportId = req.query.arrivalAirportId.toUpperCase();
     }
 
-    // 4. Now, search the Flight collection using the built filter
-    //    If filter is empty (no query params), this will return all flights
+     /////// filter prizes using the max and min 
+   if (req.query.priceBetween) {
+      const parts = req.query.priceBetween.split('-');
+      const min = Number(parts[0]);
+      const max = Number(parts[1]);
+
+      if (min && max) {
+        filter.price = { $gte: min ,$lte: (max == undefined) ? 400000 :max};
+      }
+    }
+   ///// for number of travellers 
+   if (req.query.travellers) {
+  filter.totalSeats = { $gte: Number(req.query.travellers) };
+}
+  // Departure date (gets all flights on that date)
+    if (req.query.departureTime) {
+      const date = req.query.departureTime;
+      const start = new Date(`${date}T00:00:00.000Z`);
+      const end = new Date(`${date}T23:59:59.999Z`);
+      filter.departureTime = { $gte: start, $lte: end };
+    }
     const flights = await Flight.find(filter);
 
-    // 5. Send the matching flights back as JSON
     res.status(200).json({ success: true, data: flights });
-
   } catch (error) {
-    // If something goes wrong, send an error response
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-
-
-
-
-
-module.exports = {createFlight,getAllFlights,getAllFlightsByFilter
-}
-
+module.exports = { createFlight, getAllFlights, getAllFlightsByFilter };

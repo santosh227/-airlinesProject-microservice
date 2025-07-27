@@ -1,7 +1,9 @@
 const Flight = require("../models/Flight");
+const Airport = require("../models/Airport");
+const Airplane = require('../models/AirPlanes')
 
 // CREATE
-createFlight = async (req, res) => {
+const createFlight = async (req, res) => {
   try {
     const {
       flightNumber,
@@ -46,11 +48,9 @@ const getAllFlightsByFilter = async (req, res) => {
   try {
     const filter = {};
 
+    // TRIPS (e.g., DEL-MUI)
     if (req.query.trips) {
-      const [departure, arrival] = req.query.trips
-        .split("-")
-        .map((s) => s.trim().toUpperCase());
-
+      const [departure, arrival] = req.query.trips.split("-").map(s => s.trim().toUpperCase());
       if (departure && arrival) {
         filter.departureAirportId = departure;
         filter.arrivalAirportId = arrival;
@@ -60,35 +60,49 @@ const getAllFlightsByFilter = async (req, res) => {
     if (req.query.departureAirportId) {
       filter.departureAirportId = req.query.departureAirportId.toUpperCase();
     }
-
     if (req.query.arrivalAirportId) {
       filter.arrivalAirportId = req.query.arrivalAirportId.toUpperCase();
     }
 
-     /////// filter prizes using the max and min 
-   if (req.query.priceBetween) {
-      const parts = req.query.priceBetween.split('-');
-      const min = Number(parts[0]);
-      const max = Number(parts[1]);
-
-      if (min && max) {
-        filter.price = { $gte: min ,$lte: (max == undefined) ? 400000 :max};
+    // PRICE BETWEEN
+    if (req.query.priceBetween) {
+      const [min, max] = req.query.priceBetween.split("-").map(Number);
+      if (!isNaN(min)) {
+        filter.price = { $gte: min };
+        if (!isNaN(max)) filter.price.$lte = max;
       }
     }
-   ///// for number of travellers 
-   if (req.query.travellers) {
-  filter.totalSeats = { $gte: Number(req.query.travellers) };
-}
-  // Departure date (gets all flights on that date)
+
+    // TRAVELLERS
+    if (req.query.travellers) {
+      filter.totalSeats = { $gte: Number(req.query.travellers) };
+    }
+
+    // DEPARTURE DATE
     if (req.query.departureTime) {
       const date = req.query.departureTime;
       const start = new Date(`${date}T00:00:00.000Z`);
       const end = new Date(`${date}T23:59:59.999Z`);
       filter.departureTime = { $gte: start, $lte: end };
     }
-    const flights = await Flight.find(filter);
 
-    res.status(200).json({ success: true, data: flights });
+    const flights = await Flight.find(filter);
+    const enriched = [];
+
+    for (let flight of flights) {
+      // NOTE: Use 'airportCode' not 'code'!
+      const depAirport = await Airport.findOne({ airportCode: flight.departureAirportId });
+      const arrAirport = await Airport.findOne({ airportCode: flight.arrivalAirportId });
+      const airplane = await Airplane.findById(flight.airplaneId);
+
+      enriched.push({
+        ...flight.toObject(),
+        departureAirport: depAirport,
+        arrivalAirport: arrAirport,
+        airplane: airplane
+      });
+    }
+    res.status(200).json({ success: true, data: enriched });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

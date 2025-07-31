@@ -6,29 +6,28 @@ const seatSchema = new mongoose.Schema({
     ref: "Flight",
     required: true
   },
-  seatNumber: {         // e.g. "12A"
+  seatNumber: {          // e.g. "12A"
     type: String,
     required: true
   },
-  classtype: {              // e.g. "Economy", "Business"
+  classtype: {           // e.g. "Economy", "Business"
     type: String,
-    required: true,
     enum: ["Economy", "Business", "First"],
-    default : "Economy"
+    default: "Economy",
+    required: true
   },
   isBooked: {
     type: Boolean,
     default: false
   },
-  col :{
-    type : integer,
-    required : true
+  col: {
+    type: Number,        // Use Number, not integer
+    required: true
   },
-  row :{
-     type : String ,
-     required : true
+  row: {
+    type: String,
+    required: true
   }
-  
 }, { timestamps: true });
 
 const Seat = mongoose.model('Seat', seatSchema);

@@ -2,7 +2,7 @@ const Flight = require("../models/Flight");
 const Airport = require("../models/Airport");
 const Airplane = require('../models/AirPlanes')
 
-// CREATE
+// CREATE Flight - sets availableSeats = totalSeats initially
 const createFlight = async (req, res) => {
   try {
     const {
@@ -17,24 +17,44 @@ const createFlight = async (req, res) => {
       totalSeats,
     } = req.body;
 
-    const flightcreate = await Flight.create({
+    if (
+      !flightNumber ||
+      !airplaneId ||
+      !departureAirportId ||
+      !arrivalAirportId ||
+      !arrivalTime ||
+      !departureTime ||
+      price == null ||
+      !boardingGate ||
+      !totalSeats
+    ) {
+      return res.status(400).json({ success: false, message: 'Please provide all required flight details.' });
+    }
+
+    // Create flight with availableSeats initialized
+    const flightCreate = await Flight.create({
       flightNumber,
       airplaneId,
-      departureAirportId,
-      arrivalAirportId,
+      departureAirportId: departureAirportId.toUpperCase(),
+      arrivalAirportId: arrivalAirportId.toUpperCase(),
       arrivalTime,
       departureTime,
       price,
       boardingGate,
       totalSeats,
+      availableSeats: totalSeats,
     });
 
-    res.status(201).json({ success: true, data: flightcreate });
+    res.status(201).json({ success: true, data: flightCreate });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
 };
 
+
+
+
+// Get all flights (simple)
 const getAllFlights = async (req, res) => {
   try {
     const getFlights = await Flight.find();
@@ -44,20 +64,78 @@ const getAllFlights = async (req, res) => {
   }
 };
 
-const getFlight = async (req,res)=>{
+// Get single flight by ID with enriched airport & airplane info
+const getFlight = async (req, res) => {
   try {
-    const { id } = req.params; // Assuming route is /api/flights/:id
+    const { id } = req.params;
     const flight = await Flight.findById(id);
 
     if (!flight) {
-      return res.status(404).json({ message: 'Flight not found.' });
+      return res.status(404).json({ success: false, message: 'Flight not found.' });
     }
-    res.status(200).json(flight);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-}
 
+    const depAirport = await Airport.findOne({ airportCode: flight.departureAirportId });
+    const arrAirport = await Airport.findOne({ airportCode: flight.arrivalAirportId });
+    const airplane = await Airplane.findById(flight.airplaneId);
+
+    const enrichedFlight = {
+      ...flight.toObject(),
+      departureAirport: depAirport,
+      arrivalAirport: arrAirport,
+      airplane: airplane,
+    };
+
+    res.status(200).json({ success: true, data: enrichedFlight });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+};
+
+
+
+// flight-service/routes/flightRoutes.js
+const bookSeats = async (req, res) => {
+  const { flightId } = req.params;
+  const { seatsToBook } = req.body;
+
+  if (!Number.isInteger(seatsToBook) || seatsToBook <= 0) {
+    return res.status(400).json({ success: false, message: 'Invalid seatsToBook value' });
+  }
+
+  try {
+    const updatedFlight = await Flight.findOneAndUpdate(
+      { _id: flightId, availableSeats: { $gte: seatsToBook } },
+      { $inc: { availableSeats: -seatsToBook } },
+      { new: true }
+    );
+
+    if (!updatedFlight) {
+      return res.status(400).json({ success: false, message: 'Not enough seats available' });
+    }
+
+    // Calculate pricing details
+    const pricePerSeat = updatedFlight.price;
+    const totalCost = pricePerSeat * seatsToBook;
+
+    res.json({ 
+      success: true, 
+      flight: updatedFlight,
+      bookingDetails: {
+        seatsBooked: seatsToBook,
+        pricePerSeat: pricePerSeat,
+        totalCost: totalCost,
+        message: `Successfully booked ${seatsToBook} seats for ₹${totalCost.toLocaleString()}`
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+
+
+// Get flights by filters with enrichment
 const getAllFlightsByFilter = async (req, res) => {
   try {
     const filter = {};
@@ -78,7 +156,7 @@ const getAllFlightsByFilter = async (req, res) => {
       filter.arrivalAirportId = req.query.arrivalAirportId.toUpperCase();
     }
 
-    // PRICE BETWEEN
+    // PRICE RANGE
     if (req.query.priceBetween) {
       const [min, max] = req.query.priceBetween.split("-").map(Number);
       if (!isNaN(min)) {
@@ -87,12 +165,12 @@ const getAllFlightsByFilter = async (req, res) => {
       }
     }
 
-    // TRAVELLERS
+    // TRAVELLERS filter using availableSeats instead of totalSeats to show truly available
     if (req.query.travellers) {
-      filter.totalSeats = { $gte: Number(req.query.travellers) };
+      filter.availableSeats = { $gte: Number(req.query.travellers) };
     }
 
-    // DEPARTURE DATE
+    // DEPARTURE DATE FILTER
     if (req.query.departureTime) {
       const date = req.query.departureTime;
       const start = new Date(`${date}T00:00:00.000Z`);
@@ -101,25 +179,43 @@ const getAllFlightsByFilter = async (req, res) => {
     }
 
     const flights = await Flight.find(filter);
-    const enriched = [];
 
-    for (let flight of flights) {
-      // NOTE: Use 'airportCode' not 'code'!
-      const depAirport = await Airport.findOne({ airportCode: flight.departureAirportId });
-      const arrAirport = await Airport.findOne({ airportCode: flight.arrivalAirportId });
-      const airplane = await Airplane.findById(flight.airplaneId);
+    // Optimization: fetch all referenced airports & airplanes once
+    const airportCodes = new Set();
+    const airplaneIds = new Set();
+    flights.forEach(flight => {
+      airportCodes.add(flight.departureAirportId);
+      airportCodes.add(flight.arrivalAirportId);
+      airplaneIds.add(String(flight.airplaneId));
+    });
 
-      enriched.push({
-        ...flight.toObject(),
-        departureAirport: depAirport,
-        arrivalAirport: arrAirport,
-        airplane: airplane
-      });
-    }
+    const airports = await Airport.find({ airportCode: { $in: Array.from(airportCodes) } });
+    const airplanes = await Airplane.find({ _id: { $in: Array.from(airplaneIds) } });
+
+    // Map for quick lookup
+    const airportMap = airports.reduce((acc, curr) => {
+      acc[curr.airportCode] = curr;
+      return acc;
+    }, {});
+
+    const airplaneMap = airplanes.reduce((acc, curr) => {
+      acc[curr._id] = curr;
+      return acc;
+    }, {});
+
+    // Build enriched response
+    const enriched = flights.map(flight => ({
+      ...flight.toObject(),
+      departureAirport: airportMap[flight.departureAirportId] || null,
+      arrivalAirport: airportMap[flight.arrivalAirportId] || null,
+      airplane: airplaneMap[flight.airplaneId] || null,
+    }));
+
     res.status(200).json({ success: true, data: enriched });
+
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-module.exports = { createFlight, getAllFlights, getFlight,getAllFlightsByFilter };
+module.exports = { createFlight, getAllFlights, getFlight,bookSeats, getAllFlightsByFilter };

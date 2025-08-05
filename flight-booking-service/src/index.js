@@ -3,14 +3,16 @@ const app = express();
 const dotenv = require('dotenv');
 dotenv.config();
 const mongoose = require('mongoose');
-const apiroutes = require('./routes/index');
 
+// CRITICAL: JSON middleware MUST come first
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Mount routes to app
+//  Routes come AFTER middleware
+const apiroutes = require('./routes/index');
 app.use('/api', apiroutes);
 
+// MongoDB connection
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,

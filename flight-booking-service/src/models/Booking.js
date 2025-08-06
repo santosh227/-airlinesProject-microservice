@@ -32,7 +32,7 @@ const bookingSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  // Store the booking details from your response
+  // Storing the booking details from your response
   seatsBooked: {
     type: Number,
     required: true

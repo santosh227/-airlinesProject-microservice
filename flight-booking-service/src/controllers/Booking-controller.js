@@ -15,7 +15,7 @@ const createCompleteBooking = async (req, res) => {
     console.log('Body keys:', req.body ? Object.keys(req.body) : 'NO BODY');
     console.log('============================');
 
-    // ✅ SAFE: Check if req.body exists
+  // Checking  if req.body exists
     if (!req.body) {
       return res.status(400).json({
         success: false,
@@ -27,7 +27,7 @@ const createCompleteBooking = async (req, res) => {
       });
     }
 
-    // ✅ SAFE: Destructure with fallback
+    // Destructure with fallback
     const {
       userId = null,
       flightId = null,
@@ -35,7 +35,7 @@ const createCompleteBooking = async (req, res) => {
       paymentId = null
     } = req.body;
 
-    // ✅ DETAILED: Validation with specific error messages
+    //DETAILED: Validation with specific error messages
     if (!userId) {
       return res.status(400).json({
         success: false,
@@ -68,7 +68,7 @@ const createCompleteBooking = async (req, res) => {
       });
     }
 
-    // ✅ VALIDATE: ObjectId format
+    // VALIDATE: ObjectId format
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({
         success: false,
@@ -86,7 +86,7 @@ const createCompleteBooking = async (req, res) => {
     const seatsToBook = seats.length;
     console.log(`Processing booking for ${seatsToBook} seats...`);
 
-    // ✅ SAFE: Call Flight service with proper error handling
+    // SAFE: Call Flight service with proper error handling
     let bookingResponse;
     try {
       console.log(`Calling Flight Service: ${FLIGHT_SERVICE_URL}/api/v1/flights/${flightId}/bookSeats`);
@@ -128,7 +128,7 @@ const createCompleteBooking = async (req, res) => {
       }
     }
 
-    // ✅ VALIDATE: Flight service response
+    // VALIDATE: Flight service response
     if (!bookingResponse.data || !bookingResponse.data.success) {
       return res.status(400).json({
         success: false,
@@ -137,7 +137,7 @@ const createCompleteBooking = async (req, res) => {
       });
     }
 
-    // ✅ SAFE: Extract data with validation
+    // SAFE: Extract data with validation
     const flightData = bookingResponse.data.flight;
     const bookingDetails = bookingResponse.data.bookingDetails;
 
@@ -149,7 +149,7 @@ const createCompleteBooking = async (req, res) => {
       });
     }
 
-    // ✅ SAFE: Validate booking details structure
+    //  SAFE: Validate booking details structure
     if (!bookingDetails.seatsBooked || !bookingDetails.pricePerSeat || !bookingDetails.totalCost) {
       return res.status(500).json({
         success: false,
@@ -160,7 +160,7 @@ const createCompleteBooking = async (req, res) => {
 
     console.log('Flight booking successful, creating database record...');
 
-    // ✅ SAFE: Create booking record with try-catch
+    //  SAFE: Create booking record with try-catch
     let booking;
     try {
       booking = await Booking.create({
@@ -200,7 +200,7 @@ const createCompleteBooking = async (req, res) => {
 
     console.log('Booking created successfully:', booking._id);
 
-    // ✅ SUCCESS: Return comprehensive response
+    //  SUCCESS: Return comprehensive response
     res.status(201).json({
       success: true,
       message: "Booking completed and stored successfully",
@@ -308,7 +308,7 @@ const getUserBookings = async (req, res) => {
     
    
     
-    // ✅ STEP 3: Simple validation - must be 24 character hex string
+    //  STEP 3: Simple validation - must be 24 character hex string
     if (!userId || userId.length !== 24) {
       return res.status(400).json({
         success: false,
@@ -321,7 +321,7 @@ const getUserBookings = async (req, res) => {
       });
     }
     
-    // ✅ STEP 4: Check if it contains only valid hex characters
+    //  STEP 4: Check if it contains only valid hex characters
     const hexPattern = /^[0-9a-fA-F]{24}$/;
     if (!hexPattern.test(userId)) {
       return res.status(400).json({
@@ -334,9 +334,9 @@ const getUserBookings = async (req, res) => {
       });
     }
     
-    console.log('✅ User ID validation passed, searching for bookings...');
+   
     
-    // ✅ STEP 5: Create proper ObjectId and search
+    //  STEP 5: Create proper ObjectId and search
     let objectId;
     try {
       objectId = new mongoose.Types.ObjectId(userId);
@@ -348,7 +348,7 @@ const getUserBookings = async (req, res) => {
       });
     }
     
-    // ✅ STEP 6: Search for bookings
+    //  STEP 6: Search for bookings
     const bookings = await Booking.find({ userId: objectId }).sort({ bookedAt: -1 });
     
     console.log(`Found ${bookings.length} bookings for user ${userId}`);
@@ -362,7 +362,7 @@ const getUserBookings = async (req, res) => {
       });
     }
 
-    // ✅ STEP 7: Get flight details for each booking (existing code)
+    //  STEP 7: Get flight details for each booking (existing code)
     const bookingsWithFlightDetails = await Promise.allSettled(
       bookings.map(async (booking) => {
         try {
@@ -383,7 +383,7 @@ const getUserBookings = async (req, res) => {
       })
     );
 
-    // ✅ STEP 8: Process results and return
+    //  STEP 8: Process results and return
     const processedBookings = bookingsWithFlightDetails.map((result, index) => {
       if (result.status === 'fulfilled') {
         return result.value;

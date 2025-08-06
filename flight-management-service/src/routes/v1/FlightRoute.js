@@ -9,9 +9,9 @@ const {
   getAllFlightsByFilter
 } = require('../../controllers/Flight-controller');
 
-const flightMiddleware = require('../../middlewares/flightMiddleware'); // Make sure this path and casing is correct
+const flightMiddleware = require('../../middlewares/flightMiddleware')
 
-// More specific route first to avoid route shadowing
+// Query flights by departure and arrival airport IDs
 router.get('/trips/:departureAirportId-:arrivalAirportId', getAllFlightsByFilter);
 
 // Create a new flight with validation middleware
@@ -23,7 +23,7 @@ router.get('/', getAllFlights);
 // Get flight by ID
 router.get('/:id', getFlight);
 
-// Book seats on flight — route simplified for clarity and correctness
+
 router.post('/:flightId/bookSeats', bookSeats);
 
 module.exports = router;

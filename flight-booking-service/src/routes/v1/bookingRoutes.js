@@ -4,7 +4,8 @@ const router = express.Router();
 const { 
   createCompleteBooking, 
   getBookingById, 
-  getUserBookings 
+  getUserBookings,
+  getBookingByReference
 } = require('../../controllers/Booking-controller');
 
 // Create complete booking with database storage
@@ -15,5 +16,8 @@ router.get('/booking/:bookingId', getBookingById);
 
 // Get all bookings for a user
 router.get('/user/:userId', getUserBookings);
+
+// Get booking by reference
+router.get('/reference/:bookingRef', getBookingByReference);
 
 module.exports = router;

@@ -7,7 +7,7 @@ const FLIGHT_SERVICE_URL = process.env.FLIGHT_SERVICE_URL || 'http://localhost:3
 // Create complete booking with database storage
 const createCompleteBooking = async (req, res) => {
   try {
-    // DEBUG: Log incoming request
+    // ✅ MISSING: Initial validation section
     console.log('=== BOOKING REQUEST DEBUG ===');
     console.log('Request body:', req.body);
     console.log('Request headers Content-Type:', req.get('Content-Type'));
@@ -15,7 +15,7 @@ const createCompleteBooking = async (req, res) => {
     console.log('Body keys:', req.body ? Object.keys(req.body) : 'NO BODY');
     console.log('============================');
 
-  // Checking  if req.body exists
+    // Safe validation
     if (!req.body) {
       return res.status(400).json({
         success: false,
@@ -27,7 +27,7 @@ const createCompleteBooking = async (req, res) => {
       });
     }
 
-    // Destructure with fallback
+    // Safe destructuring with fallback
     const {
       userId = null,
       flightId = null,
@@ -35,7 +35,7 @@ const createCompleteBooking = async (req, res) => {
       paymentId = null
     } = req.body;
 
-    //DETAILED: Validation with specific error messages
+    // Detailed validation
     if (!userId) {
       return res.status(400).json({
         success: false,
@@ -68,7 +68,7 @@ const createCompleteBooking = async (req, res) => {
       });
     }
 
-    // VALIDATE: ObjectId format
+    // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({
         success: false,
@@ -86,40 +86,35 @@ const createCompleteBooking = async (req, res) => {
     const seatsToBook = seats.length;
     console.log(`Processing booking for ${seatsToBook} seats...`);
 
-    // SAFE: Call Flight service with proper error handling
+    // Call Flight service
+    console.log(`Calling Flight Service: ${FLIGHT_SERVICE_URL}/api/v1/flights/${flightId}/bookSeats`);
+    
     let bookingResponse;
     try {
-      console.log(`Calling Flight Service: ${FLIGHT_SERVICE_URL}/api/v1/flights/${flightId}/bookSeats`);
-      
       bookingResponse = await axios.post(
         `${FLIGHT_SERVICE_URL}/api/v1/flights/${flightId}/bookSeats`,
         { seatsToBook },
         {
-          timeout: 10000, // 10 second timeout
-          headers: {
-            'Content-Type': 'application/json'
-          }
+          timeout: 10000,
+          headers: { 'Content-Type': 'application/json' }
         }
       );
     } catch (axiosError) {
       console.error('Flight Service Error:', axiosError.message);
       
       if (axiosError.response) {
-        // Flight service responded with error
         return res.status(axiosError.response.status || 400).json({
           success: false,
           message: axiosError.response.data?.message || "Flight service error",
           flightServiceError: axiosError.response.data
         });
       } else if (axiosError.code === 'ECONNREFUSED') {
-        // Flight service is not running
         return res.status(503).json({
           success: false,
           message: "Flight Management Service is not available. Please ensure it's running on port 3000.",
           error: "SERVICE_UNAVAILABLE"
         });
       } else {
-        // Network or other error
         return res.status(500).json({
           success: false,
           message: "Failed to connect to Flight Management Service",
@@ -128,16 +123,14 @@ const createCompleteBooking = async (req, res) => {
       }
     }
 
-    // VALIDATE: Flight service response
     if (!bookingResponse.data || !bookingResponse.data.success) {
       return res.status(400).json({
         success: false,
-        message: bookingResponse.data?.message || "Seat booking failed in Flight service",
+        message: bookingResponse.data?.message || "Seat booking failed",
         flightServiceResponse: bookingResponse.data
       });
     }
 
-    // SAFE: Extract data with validation
     const flightData = bookingResponse.data.flight;
     const bookingDetails = bookingResponse.data.bookingDetails;
 
@@ -149,18 +142,17 @@ const createCompleteBooking = async (req, res) => {
       });
     }
 
-    //  SAFE: Validate booking details structure
-    if (!bookingDetails.seatsBooked || !bookingDetails.pricePerSeat || !bookingDetails.totalCost) {
-      return res.status(500).json({
-        success: false,
-        message: "Invalid booking details from Flight service",
-        bookingDetails
-      });
-    }
+    // ✅ GENERATE UNIQUE BOOKING REFERENCE
+    console.log('Generating booking reference...');
+    const bookingReference = await generateUniqueReference(
+      flightData.flightNumber,
+      flightData.arrivalAirportId,
+      new Date()
+    );
 
-    console.log('Flight booking successful, creating database record...');
+    console.log(`Booking reference generated: ${bookingReference}`);
 
-    //  SAFE: Create booking record with try-catch
+    // Store complete booking in database
     let booking;
     try {
       booking = await Booking.create({
@@ -169,6 +161,7 @@ const createCompleteBooking = async (req, res) => {
         seats,
         price: bookingDetails.totalCost,
         paymentId,
+        bookingReference, // ✅ ADD THIS FIELD
         status: "confirmed",
         bookedAt: new Date(),
         seatsBooked: bookingDetails.seatsBooked,
@@ -177,35 +170,21 @@ const createCompleteBooking = async (req, res) => {
       });
     } catch (dbError) {
       console.error('Database Error:', dbError);
-      
-      // Try to rollback flight seats if booking creation fails
-      try {
-        await axios.post(
-          `${FLIGHT_SERVICE_URL}/api/v1/flights/${flightId}/bookSeats`,
-          { seatsToBook: -seatsToBook }, // Negative to add seats back
-          { timeout: 5000 }
-        );
-        console.log('Seats rolled back due to database error');
-      } catch (rollbackError) {
-        console.error('Failed to rollback seats:', rollbackError.message);
-      }
-
       return res.status(500).json({
         success: false,
         message: "Failed to create booking record in database",
-        error: dbError.message,
-        note: "Seats have been restored in flight inventory"
+        error: dbError.message
       });
     }
 
-    console.log('Booking created successfully:', booking._id);
+    console.log(`Booking created successfully with reference: ${booking.bookingReference}`);
 
-    //  SUCCESS: Return comprehensive response
     res.status(201).json({
       success: true,
       message: "Booking completed and stored successfully",
       booking: {
         _id: booking._id,
+        bookingReference: booking.bookingReference, // ✅ INCLUDE IN RESPONSE
         userId: booking.userId,
         flightId: booking.flightId,
         seats: booking.seats,
@@ -237,8 +216,7 @@ const createCompleteBooking = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "An unexpected error occurred during booking",
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: error.message
     });
   }
 };
@@ -302,13 +280,10 @@ const getBookingById = async (req, res) => {
 // Get all bookings for a user with enhanced error handling
 const getUserBookings = async (req, res) => {
   try {
-   
     const rawUserId = req.params.userId;
     const userId = rawUserId ? rawUserId.trim() : '';
     
-   
-    
-    //  STEP 3: Simple validation - must be 24 character hex string
+    // Simple validation - must be 24 character hex string
     if (!userId || userId.length !== 24) {
       return res.status(400).json({
         success: false,
@@ -321,7 +296,7 @@ const getUserBookings = async (req, res) => {
       });
     }
     
-    //  STEP 4: Check if it contains only valid hex characters
+    // Check if it contains only valid hex characters
     const hexPattern = /^[0-9a-fA-F]{24}$/;
     if (!hexPattern.test(userId)) {
       return res.status(400).json({
@@ -334,9 +309,7 @@ const getUserBookings = async (req, res) => {
       });
     }
     
-   
-    
-    //  STEP 5: Create proper ObjectId and search
+    // Create proper ObjectId and search
     let objectId;
     try {
       objectId = new mongoose.Types.ObjectId(userId);
@@ -348,7 +321,7 @@ const getUserBookings = async (req, res) => {
       });
     }
     
-    //  STEP 6: Search for bookings
+    // Search for bookings
     const bookings = await Booking.find({ userId: objectId }).sort({ bookedAt: -1 });
     
     console.log(`Found ${bookings.length} bookings for user ${userId}`);
@@ -362,7 +335,7 @@ const getUserBookings = async (req, res) => {
       });
     }
 
-    //  STEP 7: Get flight details for each booking (existing code)
+    // Get flight details for each booking
     const bookingsWithFlightDetails = await Promise.allSettled(
       bookings.map(async (booking) => {
         try {
@@ -383,7 +356,7 @@ const getUserBookings = async (req, res) => {
       })
     );
 
-    //  STEP 8: Process results and return
+    // Process results and return
     const processedBookings = bookingsWithFlightDetails.map((result, index) => {
       if (result.status === 'fulfilled') {
         return result.value;
@@ -412,10 +385,116 @@ const getUserBookings = async (req, res) => {
   }
 };
 
+// Get booking by reference with enhanced error handling
+const getBookingByReference = async (req, res) => {
+  try {
+    const { bookingRef } = req.params;
+    
+    // Clean and validate reference
+    const cleanRef = bookingRef.trim().toUpperCase();
+    
+    if (!cleanRef || cleanRef.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking reference format"
+      });
+    }
 
+    console.log(`Searching for booking with reference: ${cleanRef}`);
+    
+    const booking = await Booking.findOne({ 
+      bookingReference: cleanRef 
+    });
+    
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found with this reference number"
+      });
+    }
 
+    // Get current flight details
+    let flightDetails = null;
+    try {
+      const flightResponse = await axios.get(
+        `${FLIGHT_SERVICE_URL}/api/v1/flights/${booking.flightId}`,
+        { timeout: 5000 }
+      );
+      if (flightResponse.data && flightResponse.data.success) {
+        flightDetails = flightResponse.data.data;
+      }
+    } catch (error) {
+      console.warn('Could not fetch flight details:', error.message);
+      flightDetails = { error: "Flight details temporarily unavailable" };
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Booking found successfully",
+      booking: {
+        ...booking.toObject(),
+        currentFlightDetails: flightDetails
+      }
+    });
+
+  } catch (error) {
+    console.error('Get booking by reference error:', error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to retrieve booking",
+      error: error.message
+    });
+  }
+};
+
+// Helper functions for booking reference generation
+function generateBookingReference(flightNumber, arrivalCode, bookedDate) {
+  const date = new Date(bookedDate);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  // Generate random 2-character suffix (excluding 0 and O for clarity)
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ123456789';
+  let randomSuffix = '';
+  for (let i = 0; i < 2; i++) {
+    randomSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  
+  // Format: AI786BOM0808A1
+  const reference = `${flightNumber}${arrivalCode}${month}${day}${randomSuffix}`;
+  
+  console.log(`Generated booking reference: ${reference}`);
+  return reference;
+}
+
+// Function to ensure unique reference
+async function generateUniqueReference(flightNumber, arrivalCode, bookedDate) {
+  let reference;
+  let isUnique = false;
+  let attempts = 0;
+  
+  while (!isUnique && attempts < 10) {
+    reference = generateBookingReference(flightNumber, arrivalCode, bookedDate);
+    
+    // Check if reference already exists
+    const existing = await Booking.findOne({ bookingReference: reference });
+    if (!existing) {
+      isUnique = true;
+    }
+    attempts++;
+  }
+  
+  if (!isUnique) {
+    throw new Error('Failed to generate unique booking reference after 10 attempts');
+  }
+  
+  return reference;
+}
+
+//  MODULE EXPORTS
 module.exports = {
   createCompleteBooking,
   getBookingById,
-  getUserBookings
+  getUserBookings,
+  getBookingByReference
 };

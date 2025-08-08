@@ -3,13 +3,13 @@ const mongoose = require('mongoose');
 const bookingSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true
+    required: true,
+    ref: 'User'
   },
   flightId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Flight",
-    required: true
+    required: true,
+    ref: 'Flight'
   },
   seats: [{
     type: String,
@@ -23,29 +23,28 @@ const bookingSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+ 
+  bookingReference: {
+    type: String,
+    required: true,
+    unique: true,
+    uppercase: true
+  },
   status: {
     type: String,
-    enum: ["pending", "confirmed", "cancelled"],
-    default: "confirmed"
+    enum: ['pending_payment', 'confirmed', 'cancelled', 'completed'],
+    default: 'confirmed'
   },
   bookedAt: {
     type: Date,
     default: Date.now
   },
-  // Storing the booking details from your response
-  seatsBooked: {
-    type: Number,
-    required: true
-  },
-  pricePerSeat: {
-    type: Number,
-    required: true
-  },
-  totalCost: {
-    type: Number,
-    required: true
-  }
-}, { timestamps: true });
+  seatsBooked: Number,
+  pricePerSeat: Number,
+  totalCost: Number
+});
 
-const Booking = mongoose.model('Booking', bookingSchema);
-module.exports = Booking;
+//INDEX FOR FASTER SEARCHES
+bookingSchema.index({ bookingReference: 1 });
+
+module.exports = mongoose.model('Booking', bookingSchema);

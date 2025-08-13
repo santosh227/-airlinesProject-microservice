@@ -7,7 +7,7 @@ const FLIGHT_SERVICE_URL = process.env.FLIGHT_SERVICE_URL || 'http://localhost:3
 // Create complete booking with database storage
 const createCompleteBooking = async (req, res) => {
   try {
-    // ✅ MISSING: Initial validation section
+    // ✅ STEP 1: Initial request debugging and validation
     console.log('=== BOOKING REQUEST DEBUG ===');
     console.log('Request body:', req.body);
     console.log('Request headers Content-Type:', req.get('Content-Type'));
@@ -27,7 +27,7 @@ const createCompleteBooking = async (req, res) => {
       });
     }
 
-    // Safe destructuring with fallback
+    // ✅ STEP 2: Safe destructuring with fallback
     const {
       userId = null,
       flightId = null,
@@ -35,7 +35,7 @@ const createCompleteBooking = async (req, res) => {
       paymentId = null
     } = req.body;
 
-    // Detailed validation
+    // ✅ STEP 3: Detailed field validation
     if (!userId) {
       return res.status(400).json({
         success: false,
@@ -68,7 +68,7 @@ const createCompleteBooking = async (req, res) => {
       });
     }
 
-    // Validate ObjectId format
+    // ✅ STEP 4: Validate ObjectId formats
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({
         success: false,
@@ -86,8 +86,36 @@ const createCompleteBooking = async (req, res) => {
     const seatsToBook = seats.length;
     console.log(`Processing booking for ${seatsToBook} seats...`);
 
-    // Call Flight service
-    console.log(`Calling Flight Service: ${FLIGHT_SERVICE_URL}/api/v1/flights/${flightId}/bookSeats`);
+    // ✅ STEP 5: PRE-BOOKING AVAILABILITY CHECK (NEW FEATURE)
+    console.log('🔍 Performing pre-booking availability check...');
+    const availabilityCheck = await checkAvailabilityBeforeBooking(flightId, seatsToBook);
+    
+    if (!availabilityCheck.available) {
+      console.log('❌ Availability check failed:', availabilityCheck.message);
+      
+      return res.status(400).json({
+        success: false,
+        message: "Seats no longer available for booking",
+        reason: "insufficient_availability",
+        availabilityInfo: {
+          requestedSeats: seatsToBook,
+          availableSeats: availabilityCheck.data?.availability?.availableSeats || 0,
+          flightStatus: availabilityCheck.data?.availability?.status || 'unknown',
+          urgencyMessage: availabilityCheck.data?.availability?.urgencyMessage || null
+        },
+        suggestions: {
+          alternativeOptions: availabilityCheck.data?.bookingGuidance?.alternativeOptions || null,
+          recommendedAction: availabilityCheck.data?.bookingGuidance?.recommendedAction || 'try_different_flight'
+        },
+        pricing: availabilityCheck.data?.pricing || null
+      });
+    }
+
+    console.log('✅ Availability check passed, proceeding with booking...');
+    console.log('💡 Available seats:', availabilityCheck.data?.availability?.availableSeats);
+
+    // ✅ STEP 6: Call Flight service to book seats
+    console.log(`🛫 Calling Flight Service: ${FLIGHT_SERVICE_URL}/api/v1/flights/${flightId}/bookSeats`);
     
     let bookingResponse;
     try {
@@ -100,13 +128,14 @@ const createCompleteBooking = async (req, res) => {
         }
       );
     } catch (axiosError) {
-      console.error('Flight Service Error:', axiosError.message);
+      console.error('❌ Flight Service Error:', axiosError.message);
       
       if (axiosError.response) {
         return res.status(axiosError.response.status || 400).json({
           success: false,
           message: axiosError.response.data?.message || "Flight service error",
-          flightServiceError: axiosError.response.data
+          flightServiceError: axiosError.response.data,
+          errorType: "flight_service_error"
         });
       } else if (axiosError.code === 'ECONNREFUSED') {
         return res.status(503).json({
@@ -123,6 +152,7 @@ const createCompleteBooking = async (req, res) => {
       }
     }
 
+    // ✅ STEP 7: Validate Flight service response
     if (!bookingResponse.data || !bookingResponse.data.success) {
       return res.status(400).json({
         success: false,
@@ -142,17 +172,17 @@ const createCompleteBooking = async (req, res) => {
       });
     }
 
-    // ✅ GENERATE UNIQUE BOOKING REFERENCE
-    console.log('Generating booking reference...');
+    // ✅ STEP 8: Generate unique booking reference
+    console.log('🎫 Generating booking reference...');
     const bookingReference = await generateUniqueReference(
       flightData.flightNumber,
       flightData.arrivalAirportId,
       new Date()
     );
 
-    console.log(`Booking reference generated: ${bookingReference}`);
+    console.log(`📋 Booking reference generated: ${bookingReference}`);
 
-    // Store complete booking in database
+    // ✅ STEP 9: Store complete booking in database
     let booking;
     try {
       booking = await Booking.create({
@@ -161,7 +191,7 @@ const createCompleteBooking = async (req, res) => {
         seats,
         price: bookingDetails.totalCost,
         paymentId,
-        bookingReference, // ✅ ADD THIS FIELD
+        bookingReference,
         status: "confirmed",
         bookedAt: new Date(),
         seatsBooked: bookingDetails.seatsBooked,
@@ -169,7 +199,7 @@ const createCompleteBooking = async (req, res) => {
         totalCost: bookingDetails.totalCost
       });
     } catch (dbError) {
-      console.error('Database Error:', dbError);
+      console.error('❌ Database Error:', dbError);
       return res.status(500).json({
         success: false,
         message: "Failed to create booking record in database",
@@ -177,14 +207,15 @@ const createCompleteBooking = async (req, res) => {
       });
     }
 
-    console.log(`Booking created successfully with reference: ${booking.bookingReference}`);
+    console.log(`✅ Booking created successfully with reference: ${booking.bookingReference}`);
 
+    // ✅ STEP 10: Return comprehensive success response
     res.status(201).json({
       success: true,
       message: "Booking completed and stored successfully",
       booking: {
         _id: booking._id,
-        bookingReference: booking.bookingReference, // ✅ INCLUDE IN RESPONSE
+        bookingReference: booking.bookingReference,
         userId: booking.userId,
         flightId: booking.flightId,
         seats: booking.seats,
@@ -200,7 +231,8 @@ const createCompleteBooking = async (req, res) => {
         flightId: flightData._id,
         flightNumber: flightData.flightNumber,
         availableSeats: flightData.availableSeats,
-        previousSeats: flightData.availableSeats + seatsToBook
+        previousSeats: flightData.availableSeats + seatsToBook,
+        seatsJustBooked: seatsToBook
       },
       pricingBreakdown: {
         seatsBooked: bookingDetails.seatsBooked,
@@ -208,18 +240,139 @@ const createCompleteBooking = async (req, res) => {
         totalCost: bookingDetails.totalCost,
         message: bookingDetails.message
       },
+      availabilityInfo: {
+        checkedAt: new Date().toISOString(),
+        seatsAvailableAtBooking: availabilityCheck.data?.availability?.availableSeats,
+        demandLevel: availabilityCheck.data?.pricing?.demandLevel,
+        occupancyPercentage: availabilityCheck.data?.pricing?.occupancyPercentage
+      },
       timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('Unexpected booking error:', error);
+    console.error('❌ Unexpected booking error:', error);
     res.status(500).json({
       success: false,
       message: "An unexpected error occurred during booking",
+      error: error.message,
+      errorType: "internal_server_error"
+    });
+  }
+};
+
+// ✅ HELPER FUNCTION: Check availability before booking (NEW)
+const checkAvailabilityBeforeBooking = async (flightId, requestedSeats) => {
+  try {
+    console.log(`🔍 Checking availability: Flight ${flightId}, Seats ${requestedSeats}`);
+    
+    const availabilityResponse = await axios.get(
+      `${FLIGHT_SERVICE_URL}/api/v1/flights/${flightId}/availability?seats=${requestedSeats}`,
+      { timeout: 5000 }
+    );
+
+    if (!availabilityResponse.data.success) {
+      console.log('❌ Availability check returned error:', availabilityResponse.data.message);
+      return {
+        available: false,
+        message: availabilityResponse.data.message,
+        data: availabilityResponse.data
+      };
+    }
+
+    console.log(`✅ Availability check result: ${availabilityResponse.data.available ? 'Available' : 'Not Available'}`);
+    console.log(`📊 Available seats: ${availabilityResponse.data.availability?.availableSeats}`);
+
+    return {
+      available: availabilityResponse.data.available,
+      message: availabilityResponse.data.message,
+      data: availabilityResponse.data
+    };
+
+  } catch (error) {
+    console.error('❌ Availability check failed:', error.message);
+    return {
+      available: false,
+      message: "Could not verify seat availability",
+      error: error.message
+    };
+  }
+};
+
+// ✅ STANDALONE AVAILABILITY ENDPOINT (NEW)
+const getFlightAvailability = async (req, res) => {
+  try {
+    const { flightId } = req.params;
+    const { seats = 1 } = req.query;
+
+    console.log(`📋 Availability request: Flight ${flightId}, Seats ${seats}`);
+
+    // Forward request to Flight Management Service
+    const availabilityCheck = await checkAvailabilityBeforeBooking(flightId, seats);
+
+    if (!availabilityCheck.available && availabilityCheck.error) {
+      return res.status(503).json({
+        success: false,
+        message: "Flight service unavailable",
+        error: "SERVICE_UNAVAILABLE"
+      });
+    }
+
+    // Return the availability data
+    res.status(200).json(availabilityCheck.data);
+
+  } catch (error) {
+    console.error('Get flight availability error:', error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to check flight availability",
       error: error.message
     });
   }
 };
+
+// ✅ EXISTING HELPER FUNCTIONS (unchanged)
+function generateBookingReference(flightNumber, arrivalCode, bookedDate) {
+  const date = new Date(bookedDate);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  // Generate random 2-character suffix (excluding 0 and O for clarity)
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ123456789';
+  let randomSuffix = '';
+  for (let i = 0; i < 2; i++) {
+    randomSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  
+  // Format: AI786BOM0813A1
+  const reference = `${flightNumber}${arrivalCode}${month}${day}${randomSuffix}`;
+  
+  console.log(`Generated booking reference: ${reference}`);
+  return reference;
+}
+
+// Function to ensure unique reference
+async function generateUniqueReference(flightNumber, arrivalCode, bookedDate) {
+  let reference;
+  let isUnique = false;
+  let attempts = 0;
+  
+  while (!isUnique && attempts < 10) {
+    reference = generateBookingReference(flightNumber, arrivalCode, bookedDate);
+    
+    // Check if reference already exists
+    const existing = await Booking.findOne({ bookingReference: reference });
+    if (!existing) {
+      isUnique = true;
+    }
+    attempts++;
+  }
+  
+  if (!isUnique) {
+    throw new Error('Failed to generate unique booking reference after 10 attempts');
+  }
+  
+  return reference;
+}
 
 // Get booking by ID with enhanced error handling
 const getBookingById = async (req, res) => {
@@ -496,5 +649,7 @@ module.exports = {
   createCompleteBooking,
   getBookingById,
   getUserBookings,
+  getFlightAvailability,
   getBookingByReference
 };
+

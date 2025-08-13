@@ -4,12 +4,13 @@ const router = express.Router();
 const { 
   createCompleteBooking, 
   getBookingById, 
-  getUserBookings,
+  getUserBookings,getFlightAvailability,
   getBookingByReference
 } = require('../../controllers/Booking-controller');
+const limiter = require('../../common/rate-limit')
 
 // Create complete booking with database storage
-router.post('/book', createCompleteBooking);
+router.post('/book', limiter,createCompleteBooking);
 
 // Get specific booking by ID
 router.get('/booking/:bookingId', getBookingById);
@@ -19,5 +20,10 @@ router.get('/user/:userId', getUserBookings);
 
 // Get booking by reference
 router.get('/reference/:bookingRef', getBookingByReference);
+
+
+// Quick Flight search 
+
+router.get('/flights/:flightId/availability', getFlightAvailability);
 
 module.exports = router;

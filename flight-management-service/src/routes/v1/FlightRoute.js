@@ -5,6 +5,7 @@ const {
   createFlight,
   getAllFlights,
   getFlight,
+  checkFlightAvailability,
   bookSeats,
   getAllFlightsByFilter
 } = require('../../controllers/Flight-controller');
@@ -25,5 +26,8 @@ router.get('/:id', getFlight);
 
 
 router.post('/:flightId/bookSeats', bookSeats);
+
+
+router.get('/:flightId/availability', checkFlightAvailability);
 
 module.exports = router;

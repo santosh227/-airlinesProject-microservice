@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Flight = require("../models/Flight");
 const Airport = require("../models/Airport");
 const Airplane = require('../models/AirPlanes')
@@ -51,9 +52,6 @@ const createFlight = async (req, res) => {
   }
 };
 
-
-
-
 // Get all flights (simple)
 const getAllFlights = async (req, res) => {
   try {
@@ -90,8 +88,128 @@ const getFlight = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
 };
+// Flights availability future 
+const checkFlightAvailability = async (req, res) => {
+  try {
+    const { flightId } = req.params;
+    const { seats = 1 } = req.query;
 
+    console.log(`Checking availability for flight ${flightId}, requested seats: ${seats}`);
 
+    // This will now work because mongoose is imported
+    if (!mongoose.Types.ObjectId.isValid(flightId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid flight ID format"
+      });
+    }
+
+    const requestedSeats = parseInt(seats);
+    if (isNaN(requestedSeats) || requestedSeats <= 0 || requestedSeats > 50) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid number of seats requested. Must be between 1 and 50.",
+        received: seats
+      });
+    }
+
+    const flight = await Flight.findById(flightId);
+    
+    if (!flight) {
+      return res.status(404).json({
+        success: false,
+        message: "Flight not found"
+      });
+    }
+
+    const currentTime = new Date();
+    const departureTime = new Date(flight.departureTime);
+    const minutesUntilDeparture = (departureTime - currentTime) / (1000 * 60);
+
+    if (minutesUntilDeparture < 30) {
+      return res.status(400).json({
+        success: false,
+        available: false,
+        message: "Flight is no longer available for booking",
+        reason: "departure_imminent",
+        departureTime: flight.departureTime,
+        minutesUntilDeparture: Math.round(minutesUntilDeparture)
+      });
+    }
+
+    const availableSeats = flight.availableSeats;
+    const canBook = availableSeats >= requestedSeats;
+    
+    const totalSeats = flight.totalSeats || 180;
+    const occupancyPercentage = Math.round(((totalSeats - availableSeats) / totalSeats) * 100);
+
+    let availabilityStatus = 'available';
+    let urgencyMessage = null;
+
+    if (availableSeats === 0) {
+      availabilityStatus = 'sold_out';
+    } else if (availableSeats <= 5) {
+      availabilityStatus = 'limited';
+      urgencyMessage = `Only ${availableSeats} seats remaining!`;
+    } else if (availableSeats <= 20) {
+      availabilityStatus = 'filling_fast';
+      urgencyMessage = `${availableSeats} seats left. Book soon!`;
+    }
+
+    let estimatedPrice = flight.price;
+    if (occupancyPercentage > 80) {
+      estimatedPrice = Math.round(flight.price * 1.1);
+    } else if (occupancyPercentage < 30) {
+      estimatedPrice = Math.round(flight.price * 0.9);
+    }
+
+    res.status(200).json({
+      success: true,
+      available: canBook,
+      message: canBook ? "Seats available for booking" : "Insufficient seats available",
+      availability: {
+        flightId: flight._id,
+        flightNumber: flight.flightNumber,
+        route: `${flight.departureAirportId} → ${flight.arrivalAirportId}`,
+        departureTime: flight.departureTime,
+        requestedSeats: requestedSeats,
+        availableSeats: availableSeats,
+        totalSeats: totalSeats,
+        canBook: canBook,
+        status: availabilityStatus,
+        urgencyMessage: urgencyMessage
+      },
+      timing: {
+        departureTime: flight.departureTime,
+        currentTime: currentTime.toISOString(),
+        minutesUntilDeparture: Math.round(minutesUntilDeparture),
+        hoursUntilDeparture: Math.round(minutesUntilDeparture / 60 * 100) / 100
+      },
+      pricing: {
+        basePrice: flight.price,
+        estimatedPrice: estimatedPrice,
+        pricePerSeat: estimatedPrice,
+        totalEstimatedCost: estimatedPrice * requestedSeats,
+        occupancyPercentage: occupancyPercentage,
+        demandLevel: occupancyPercentage > 80 ? 'high' : occupancyPercentage > 50 ? 'medium' : 'low'
+      },
+      bookingGuidance: {
+        recommendedAction: canBook ? 'proceed_to_book' : 'select_fewer_seats',
+        alternativeOptions: !canBook && availableSeats > 0 ? 
+          `Try booking ${availableSeats} seat${availableSeats === 1 ? '' : 's'} instead` : null,
+        bookingDeadline: `Booking closes ${Math.round(minutesUntilDeparture)} minutes before departure`
+      }
+    });
+
+  } catch (error) {
+    console.error('Flight availability check error:', error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to check flight availability",
+      error: error.message
+    });
+  }
+};
 
 // flight-service/routes/flightRoutes.js
 const bookSeats = async (req, res) => {
@@ -131,9 +249,6 @@ const bookSeats = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
-
 
 // Get flights by filters with enrichment
 const getAllFlightsByFilter = async (req, res) => {
@@ -218,4 +333,4 @@ const getAllFlightsByFilter = async (req, res) => {
   }
 };
 
-module.exports = { createFlight, getAllFlights, getFlight,bookSeats, getAllFlightsByFilter };
+module.exports = { createFlight, getAllFlights, getFlight,checkFlightAvailability,bookSeats, getAllFlightsByFilter };

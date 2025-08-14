@@ -334,3 +334,5 @@ const getAllFlightsByFilter = async (req, res) => {
 };
 
 module.exports = { createFlight, getAllFlights, getFlight,checkFlightAvailability,bookSeats, getAllFlightsByFilter };
+
+

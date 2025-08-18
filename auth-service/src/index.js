@@ -3,39 +3,51 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 
+// Import routes
+const authRoutes = require('./routes/auth');
+const userRoutes = require('./models/user'); 
+
 const app = express();
 const PORT = process.env.PORT || 5001;
 
-// Middleware
+// Basic security middlewares
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-// Routes
-const authRoutes = require('./routes/auth');
+// API endpoints
 app.use('/api/auth', authRoutes);
+app.use('/api/user', userRoutes); // optional
 
-// Root route
-app.get('/', (req, res) => {
+// Health check
+app.get('/api/health', (req, res) => {
   res.json({
     success: true,
-    message: 'Auth Service is running',
-    endpoints: [
-      'POST /api/auth/register',
-      'POST /api/auth/login'
-    ]
+    status: 'healthy',
+    timestamp: new Date(),
+    uptime: process.uptime()
   });
 });
 
-// Database connection
-mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/airline_auth')
-  .then(() => {
-    console.log('✅ Connected to MongoDB');
-  })
-  .catch(err => {
-    console.error('❌ MongoDB connection error:', err);
-  });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Auth Service running on port ${PORT}`);
+
+// Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+.then(() => {
+  console.log(' Auth Service connected to MongoDB');
+  app.listen(PORT, () => {
+    console.log(` Auth Service running on port ${PORT}`);
+  });
+})
+.catch(err => {
+  console.error(' MongoDB connection error:', err);
 });
+
+
+app.listen(PORT,()=>{
+    console.log("server created success on 5001");
+    
+})

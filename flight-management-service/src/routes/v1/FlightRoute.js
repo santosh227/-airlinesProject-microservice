@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-
+const authenticateUser = require('../../middlewares/auth-middleware');
 const {
   createFlight,
   getAllFlights,
@@ -19,10 +19,10 @@ router.get('/trips/:departureAirportId-:arrivalAirportId', getAllFlightsByFilter
 router.post('/', flightMiddleware, createFlight);
 
 // Get all flights
-router.get('/', getAllFlights);
+router.get('/', authenticateUser, getAllFlights);
 
 // Get flight by ID
-router.get('/:id', getFlight);
+router.get('/:id',authenticateUser, getFlight);
 
 
 router.post('/:flightId/bookSeats', bookSeats);

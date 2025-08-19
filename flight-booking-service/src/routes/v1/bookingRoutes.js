@@ -9,8 +9,10 @@ const {
 } = require('../../controllers/Booking-controller');
 const limiter = require('../../common/rate-limit')
 
+const idempotency = require('../../middlewares/idempotency')
+
 // Create complete booking with database storage
-router.post('/book', limiter,createCompleteBooking);
+router.post('/book', limiter,idempotency,createCompleteBooking);
 
 // Get specific booking by ID
 router.get('/booking/:bookingId', getBookingById);

@@ -1,5 +1,8 @@
 const express = require('express');
+const mongoose = require('mongoose')
 const router = express.Router();
+const Booking = require('../../models/Booking')
+
 
 const { 
   createCompleteBooking, 
@@ -28,7 +31,7 @@ router.get('/booking/:bookingId/status-history', getBookingStatusHistory);
 // Quick status check endpoint
 router.get('/booking/:bookingId/status', async (req, res) => {
   try {
-    const { bookingId } = req.params;
+    const { bookingId } = req.params;  
     
     if (!mongoose.Types.ObjectId.isValid(bookingId)) {
       return res.status(400).json({ success: false, message: 'Invalid booking ID format' });
@@ -52,6 +55,7 @@ router.get('/booking/:bookingId/status', async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Error getting booking status:', error); // Add logging
     res.status(500).json({ success: false, message: 'Failed to get booking status' });
   }
 });

@@ -182,14 +182,14 @@ const createCompleteBooking = async (req, res) => {
       await booking.save();
 
       // ✅ STEP 5: Pre-booking availability check (your existing code)
-      console.log('🔍 Performing pre-booking availability check...');
-      const availabilityCheck = await checkAvailabilityBeforeBooking(flightId, seatsToBook);
+      // console.log('🔍 Performing pre-booking availability check...');
+      // const availabilityCheck = await checkAvailabilityBeforeBooking(flightId, seatsToBook);
       
-      if (!availabilityCheck.available) {
-        throw new Error(`Insufficient seats available: ${availabilityCheck.message}`);
-      }
+      // if (!availabilityCheck.available) {
+      //   throw new Error(`Insufficient seats available: ${availabilityCheck.message}`);
+      // }
 
-      console.log('✅ Availability check passed, proceeding with seat booking...');
+      // console.log('✅ Availability check passed, proceeding with seat booking...');
 
       // ✅ STEP 6: Update status to payment_processing
       booking.updateBookingStatus('payment_processing', 'Availability confirmed, processing seat booking', 'system');
@@ -449,37 +449,58 @@ const getBookingStatusHistory = async (req, res) => {
 //  HELPER FUNCTION: Check availability before booking (NEW)
 const checkAvailabilityBeforeBooking = async (flightId, requestedSeats) => {
   try {
-    console.log(`🔍 Checking availability: Flight ${flightId}, Seats ${requestedSeats}`);
+    const FLIGHT_SERVICE_URL = process.env.FLIGHT_SERVICE_URL || 'http://localhost:3000';
     
-    const availabilityResponse = await axios.get(
-      `${FLIGHT_SERVICE_URL}/api/v1/flights/${flightId}/availability?seats=${requestedSeats}`,
-      { timeout: 5000 }
+    console.log(`🔍 Checking availability for ${requestedSeats} seats on flight ${flightId}`);
+    console.log(`🌐 Flight service URL: ${FLIGHT_SERVICE_URL}`);
+    
+    const response = await axios.get(
+      `${FLIGHT_SERVICE_URL}/api/v1/flights/${flightId}/availability`,
+      { 
+        timeout: 10000,
+        headers: { 'Content-Type': 'application/json' }
+      }
     );
-
-    if (!availabilityResponse.data.success) {
-      console.log('❌ Availability check returned error:', availabilityResponse.data.message);
-      return {
-        available: false,
-        message: availabilityResponse.data.message,
-        data: availabilityResponse.data
+    
+    console.log('📊 Flight service response:', response.data);
+    
+    if (response.data && response.data.success) {
+      const availableSeats = response.data.data?.availability?.availableSeats || 0;
+      
+      if (availableSeats >= requestedSeats) {
+        console.log(`✅ Availability confirmed: ${availableSeats} seats available, need ${requestedSeats}`);
+        return { 
+          available: true, 
+          data: response.data.data 
+        };
+      } else {
+        console.log(`❌ Insufficient seats: ${availableSeats} available, need ${requestedSeats}`);
+        return { 
+          available: false, 
+          message: `Only ${availableSeats} seats available, requested ${requestedSeats}`,
+          data: response.data.data 
+        };
+      }
+    } else {
+      console.error('❌ Flight service returned unsuccessful response:', response.data);
+      return { 
+        available: false, 
+        message: 'Flight service returned error response',
+        error: response.data?.message || 'Unknown error'
       };
     }
-
-    console.log(`✅ Availability check result: ${availabilityResponse.data.available ? 'Available' : 'Not Available'}`);
-    console.log(`📊 Available seats: ${availabilityResponse.data.availability?.availableSeats}`);
-
-    return {
-      available: availabilityResponse.data.available,
-      message: availabilityResponse.data.message,
-      data: availabilityResponse.data
-    };
-
   } catch (error) {
-    console.error('❌ Availability check failed:', error.message);
-    return {
-      available: false,
-      message: "Could not verify seat availability",
-      error: error.message
+    console.error('❌ Availability check failed:', {
+      message: error.message,
+      code: error.code,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    
+    return { 
+      available: false, 
+      message: 'Could not verify seat availability',
+      error: error.message 
     };
   }
 };

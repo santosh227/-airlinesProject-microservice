@@ -8,7 +8,6 @@ const {
   getBookingByReference
 } = require('../../controllers/Booking-controller');
 const limiter = require('../../common/rate-limit')
-
 const idempotency = require('../../middlewares/idempotency')
 
 // Create complete booking with database storage

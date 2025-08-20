@@ -49,7 +49,7 @@ module.exports = async function idempotency(req, res, next) {
         key,
         method,
         path: req.path,
-        userId: req.user?.id, // optional
+        userId: req.user?.id, 
         requestHash: reqHash,
         status: 'pending',
         lockedUntil: lockUntil,
@@ -58,12 +58,12 @@ module.exports = async function idempotency(req, res, next) {
       captureResponse(res, key);
       return next();
     } catch (_) {
-      // duplicate key: proceed to fetch
+      
     }
 
     const record = await Idempotency.findOne({ key });
     if (!record) {
-      // rare race: process anyway
+ 
       captureResponse(res, key);
       return next();
     }

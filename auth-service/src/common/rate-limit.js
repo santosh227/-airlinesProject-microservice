@@ -5,3 +5,5 @@ const limitlogin = rateLimit({
     max : 5 ,
     message : "too many request try to login after 15 min "
 })
+
+module.exports = {limitlogin}

@@ -1,6 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const User = require('../models/user');
+const  {limitlogin} = require('../common/rate-limit')
 const {registerUser,loginUser} = require('../controller/auth-controller')
 const router = express.Router();
 
@@ -8,6 +8,6 @@ const router = express.Router();
 router.post('/register',registerUser );
 
 // Login
-router.post('/login',loginUser );
+router.post('/login',limitlogin,loginUser );
 
 module.exports = router;

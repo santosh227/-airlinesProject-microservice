@@ -7,7 +7,8 @@ const {
   getFlight,
   checkFlightAvailability,
   bookSeats,
-  getAllFlightsByFilter
+  getAllFlightsByFilter,
+  releaseSeats
 } = require('../../controllers/Flight-controller');
 
 const flightMiddleware = require('../../middlewares/flightMiddleware')
@@ -29,5 +30,8 @@ router.post('/:flightId/bookSeats', bookSeats);
 
 
 router.get('/:flightId/availability', checkFlightAvailability);
+
+
+router.post('/:flightId/releaseSeats', releaseSeats);
 
 module.exports = router;

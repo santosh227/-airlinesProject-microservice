@@ -333,6 +333,75 @@ const getAllFlightsByFilter = async (req, res) => {
   }
 };
 
-module.exports = { createFlight, getAllFlights, getFlight,checkFlightAvailability,bookSeats, getAllFlightsByFilter };
+/// Booking cancellation
+const releaseSeats = async (req, res) => {
+  try {
+    console.log('🔄 Releasing seats - Request received');
+    const { flightId } = req.params;
+    const { seatsToRelease } = req.body;
+    
+    // Validation
+    if (!seatsToRelease || seatsToRelease <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid seatsToRelease value. Must be a positive number.'
+      });
+    }
+    
+    if (!mongoose.Types.ObjectId.isValid(flightId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid flight ID format'
+      });
+    }
+    
+    // Find and update flight
+    const flight = await Flight.findById(flightId);
+    if (!flight) {
+      return res.status(404).json({
+        success: false,
+        message: 'Flight not found'
+      });
+    }
+    
+    console.log(`✈️ Flight ${flight.flightNumber}: Current available seats: ${flight.availableSeats}`);
+    
+    // Release seats (add back to available seats)
+    const previousAvailableSeats = flight.availableSeats;
+    flight.availableSeats += seatsToRelease;
+    
+    // Ensure we don't exceed total seats
+    if (flight.availableSeats > flight.totalSeats) {
+      flight.availableSeats = flight.totalSeats;
+    }
+    
+    await flight.save();
+    
+    console.log(`✅ Seats released: ${seatsToRelease}, New available seats: ${flight.availableSeats}`);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Seats released successfully',
+      flight: {
+        id: flight._id,
+        flightNumber: flight.flightNumber,
+        availableSeats: flight.availableSeats,
+        totalSeats: flight.totalSeats,
+        previousAvailableSeats: previousAvailableSeats,
+        seatsReleased: seatsToRelease
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error releasing seats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to release seats',
+      error: error.message
+    });
+  }
+};
+
+module.exports = { createFlight, getAllFlights, getFlight,checkFlightAvailability,bookSeats, getAllFlightsByFilter,releaseSeats };
 
 

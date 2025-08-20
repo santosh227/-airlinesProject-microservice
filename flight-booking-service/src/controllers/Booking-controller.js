@@ -4,30 +4,90 @@ const mongoose = require('mongoose');
 
 const FLIGHT_SERVICE_URL = process.env.FLIGHT_SERVICE_URL || 'http://localhost:3000';
 
-// Create complete booking with database storage
+
+
+// Helper function to generate unique booking reference
+async function generateUniqueReference(flightNumber, destination, date) {
+  const prefix = flightNumber.substring(0, 3).toUpperCase();
+  const dateStr = date.toISOString().slice(2, 10).replace(/-/g, '');
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  return `${prefix}${dateStr}${random}`;
+}
+
+// Helper function to release seats to flight service
+async function releaseSeatsToFlightService(flightId, seatsToRelease) {
+  try {
+    const FLIGHT_SERVICE_URL = process.env.FLIGHT_SERVICE_URL || 'http://localhost:3000';
+    
+    console.log(`🔄 Releasing ${seatsToRelease} seats for flight ${flightId}`);
+    
+    const response = await axios.post(
+      `${FLIGHT_SERVICE_URL}/api/v1/flights/${flightId}/releaseSeats`,
+      { seatsToRelease },
+      { 
+        timeout: 10000, 
+        headers: { 'Content-Type': 'application/json' } 
+      }
+    );
+    
+    if (response.data.success) {
+      console.log(`✅ Successfully released ${seatsToRelease} seats`);
+      return response.data;
+    } else {
+      throw new Error('Flight service returned unsuccessful response');
+    }
+  } catch (error) {
+    console.error('❌ Error releasing seats to flight service:', error.message);
+    // Don't throw error here - cancellation should still proceed even if seat release fails
+    return { success: false, error: error.message };
+  }
+}
+
+// Helper function to simulate refund processing
+async function processRefund(booking) {
+  try {
+    console.log(`💰 Processing refund for booking ${booking.bookingReference}`);
+    
+    // Update refund status to processing
+    booking.refundStatus = 'processing';
+    await booking.save();
+    
+    // Simulate async refund processing (in real implementation, this would call payment gateway)
+    setTimeout(async () => {
+      try {
+        const updatedBooking = await Booking.findById(booking._id);
+        if (updatedBooking) {
+          updatedBooking.refundStatus = 'completed';
+          await updatedBooking.save();
+          console.log(`✅ Refund completed for booking ${updatedBooking.bookingReference}`);
+        }
+      } catch (error) {
+        console.error('❌ Error completing refund:', error);
+      }
+    }, 5000); // 5 seconds delay to simulate processing
+    
+  } catch (error) {
+    console.error('❌ Error processing refund:', error);
+    booking.refundStatus = 'failed';
+    await booking.save();
+  }
+}
+
+//Create Complete Booking with Status Management
 const createCompleteBooking = async (req, res) => {
   try {
-    // ✅ STEP 1: Initial request debugging and validation
+    // ✅ STEP 1: Initial request debugging and validation (your existing validation code)
     console.log('=== BOOKING REQUEST DEBUG ===');
     console.log('Request body:', req.body);
-    console.log('Request headers Content-Type:', req.get('Content-Type'));
-    console.log('Body exists:', !!req.body);
-    console.log('Body keys:', req.body ? Object.keys(req.body) : 'NO BODY');
     console.log('============================');
 
-    // Safe validation
     if (!req.body) {
       return res.status(400).json({
         success: false,
-        message: "Request body is missing. Please send JSON data.",
-        debug: {
-          contentType: req.get('Content-Type'),
-          bodyExists: !!req.body
-        }
+        message: "Request body is missing. Please send JSON data."
       });
     }
 
-    // ✅ STEP 2: Safe destructuring with fallback
     const {
       userId = null,
       flightId = null,
@@ -35,7 +95,7 @@ const createCompleteBooking = async (req, res) => {
       paymentId = null
     } = req.body;
 
-    // ✅ STEP 3: Detailed field validation
+    // Field validations (your existing validation logic)
     if (!userId) {
       return res.status(400).json({
         success: false,
@@ -68,7 +128,7 @@ const createCompleteBooking = async (req, res) => {
       });
     }
 
-    // ✅ STEP 4: Validate ObjectId formats
+    // Validate ObjectId formats
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({
         success: false,
@@ -84,42 +144,62 @@ const createCompleteBooking = async (req, res) => {
     }
 
     const seatsToBook = seats.length;
-    console.log(`Processing booking for ${seatsToBook} seats...`);
+    console.log(`📋 Processing booking for ${seatsToBook} seats...`);
 
-    // ✅ STEP 5: PRE-BOOKING AVAILABILITY CHECK (NEW FEATURE)
-    console.log('🔍 Performing pre-booking availability check...');
-    const availabilityCheck = await checkAvailabilityBeforeBooking(flightId, seatsToBook);
+    // ✅ STEP 2: Generate booking reference
+    const bookingReference = await generateUniqueReference('FL', 'DEST', new Date());
+
+    // ✅ STEP 3: Initialize booking with 'initialized' status
+    console.log('📋 Creating initial booking record...');
     
-    if (!availabilityCheck.available) {
-      console.log('❌ Availability check failed:', availabilityCheck.message);
-      
-      return res.status(400).json({
-        success: false,
-        message: "Seats no longer available for booking",
-        reason: "insufficient_availability",
-        availabilityInfo: {
-          requestedSeats: seatsToBook,
-          availableSeats: availabilityCheck.data?.availability?.availableSeats || 0,
-          flightStatus: availabilityCheck.data?.availability?.status || 'unknown',
-          urgencyMessage: availabilityCheck.data?.availability?.urgencyMessage || null
-        },
-        suggestions: {
-          alternativeOptions: availabilityCheck.data?.bookingGuidance?.alternativeOptions || null,
-          recommendedAction: availabilityCheck.data?.bookingGuidance?.recommendedAction || 'try_different_flight'
-        },
-        pricing: availabilityCheck.data?.pricing || null
-      });
-    }
+    let booking = new Booking({
+      userId: new mongoose.Types.ObjectId(userId),
+      flightId: new mongoose.Types.ObjectId(flightId),
+      bookingReference,
+      seats,
+      paymentId,
+      seatsBooked: seatsToBook,
+      status: 'initialized',
+      price: 0, // Will be updated after flight service call
+      pricePerSeat: 0,
+      totalCost: 0
+    });
 
-    console.log('✅ Availability check passed, proceeding with booking...');
-    console.log('💡 Available seats:', availabilityCheck.data?.availability?.availableSeats);
+    // Add initial status to history
+    booking.statusHistory.push({
+      status: 'initialized',
+      changedAt: new Date(),
+      changedBy: 'system',
+      reason: 'Booking created and initialized'
+    });
 
-    // ✅ STEP 6: Call Flight service to book seats
-    console.log(`🛫 Calling Flight Service: ${FLIGHT_SERVICE_URL}/api/v1/flights/${flightId}/bookSeats`);
-    
-    let bookingResponse;
+    await booking.save();
+    console.log(`✅ Booking ${booking.bookingReference} initialized with ID: ${booking._id}`);
+
+    // ✅ STEP 4: Update status to pending_payment and proceed with flight booking
     try {
-      bookingResponse = await axios.post(
+      booking.updateBookingStatus('pending_payment', 'Proceeding with seat booking and payment processing', 'system');
+      await booking.save();
+
+      // ✅ STEP 5: Pre-booking availability check (your existing code)
+      console.log('🔍 Performing pre-booking availability check...');
+      const availabilityCheck = await checkAvailabilityBeforeBooking(flightId, seatsToBook);
+      
+      if (!availabilityCheck.available) {
+        throw new Error(`Insufficient seats available: ${availabilityCheck.message}`);
+      }
+
+      console.log('✅ Availability check passed, proceeding with seat booking...');
+
+      // ✅ STEP 6: Update status to payment_processing
+      booking.updateBookingStatus('payment_processing', 'Availability confirmed, processing seat booking', 'system');
+      await booking.save();
+
+      // ✅ STEP 7: Call Flight service to book seats (your existing code)
+      console.log(`🛫 Calling Flight Service to book ${seatsToBook} seats...`);
+      
+      const FLIGHT_SERVICE_URL = process.env.FLIGHT_SERVICE_URL || 'http://localhost:3000';
+      const bookingResponse = await axios.post(
         `${FLIGHT_SERVICE_URL}/api/v1/flights/${flightId}/bookSeats`,
         { seatsToBook },
         {
@@ -127,140 +207,246 @@ const createCompleteBooking = async (req, res) => {
           headers: { 'Content-Type': 'application/json' }
         }
       );
-    } catch (axiosError) {
-      console.error('❌ Flight Service Error:', axiosError.message);
-      
-      if (axiosError.response) {
-        return res.status(axiosError.response.status || 400).json({
-          success: false,
-          message: axiosError.response.data?.message || "Flight service error",
-          flightServiceError: axiosError.response.data,
-          errorType: "flight_service_error"
-        });
-      } else if (axiosError.code === 'ECONNREFUSED') {
-        return res.status(503).json({
-          success: false,
-          message: "Flight Management Service is not available. Please ensure it's running on port 3000.",
-          error: "SERVICE_UNAVAILABLE"
-        });
-      } else {
-        return res.status(500).json({
-          success: false,
-          message: "Failed to connect to Flight Management Service",
-          error: axiosError.message
-        });
-      }
-    }
 
-    // ✅ STEP 7: Validate Flight service response
-    if (!bookingResponse.data || !bookingResponse.data.success) {
+      if (!bookingResponse.data || !bookingResponse.data.success) {
+        throw new Error(bookingResponse.data?.message || "Flight seat booking failed");
+      }
+
+      const flightData = bookingResponse.data.flight;
+      const bookingDetails = bookingResponse.data.bookingDetails;
+
+      // ✅ STEP 8: Update booking with pricing details
+      booking.price = bookingDetails.totalCost;
+      booking.pricePerSeat = bookingDetails.pricePerSeat;
+      booking.totalCost = bookingDetails.totalCost;
+      booking.seatsBooked = bookingDetails.seatsBooked;
+
+      // ✅ STEP 9: Confirm the booking
+      booking.updateBookingStatus('confirmed', 'Payment processed and seats confirmed', 'system');
+      await booking.save();
+
+      console.log(`✅ Booking ${booking.bookingReference} completed successfully`);
+
+      // ✅ STEP 10: Return success response
+      res.status(201).json({
+        success: true,
+        message: "Booking completed and confirmed successfully",
+        booking: {
+          _id: booking._id,
+          bookingReference: booking.bookingReference,
+          status: booking.status,
+          userId: booking.userId,
+          flightId: booking.flightId,
+          seats: booking.seats,
+          paymentId: booking.paymentId,
+          bookedAt: booking.bookedAt,
+          confirmedAt: booking.confirmedAt,
+          seatsBooked: booking.seatsBooked,
+          pricePerSeat: booking.pricePerSeat,
+          totalCost: booking.totalCost,
+          canBeCancelled: booking.canBeCancelled
+        },
+        flightUpdate: {
+          flightId: flightData._id,
+          flightNumber: flightData.flightNumber,
+          availableSeats: flightData.availableSeats,
+          previousSeats: flightData.availableSeats + seatsToBook,
+          seatsJustBooked: seatsToBook
+        },
+        pricingBreakdown: {
+          seatsBooked: bookingDetails.seatsBooked,
+          pricePerSeat: bookingDetails.pricePerSeat,
+          totalCost: bookingDetails.totalCost,
+          currency: "INR"
+        },
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      // ✅ STEP 11: Handle failure - cancel the booking
+      console.error('❌ Booking process failed, cancelling booking:', error.message);
+      
+      try {
+        booking.updateBookingStatus('cancelled', `Booking process failed: ${error.message}`, 'system');
+        booking.cancellationReason = `Booking process failed: ${error.message}`;
+        booking.cancelledBy = 'system';
+        await booking.save();
+        
+        console.log(`❌ Booking ${booking.bookingReference} cancelled due to processing failure`);
+      } catch (cancelError) {
+        console.error('❌ Error cancelling failed booking:', cancelError);
+      }
+      
       return res.status(400).json({
         success: false,
-        message: bookingResponse.data?.message || "Seat booking failed",
-        flightServiceResponse: bookingResponse.data
-      });
-    }
-
-    const flightData = bookingResponse.data.flight;
-    const bookingDetails = bookingResponse.data.bookingDetails;
-
-    if (!flightData || !bookingDetails) {
-      return res.status(500).json({
-        success: false,
-        message: "Invalid response from Flight service - missing flight data or booking details",
-        received: bookingResponse.data
-      });
-    }
-
-    // ✅ STEP 8: Generate unique booking reference
-    console.log('🎫 Generating booking reference...');
-    const bookingReference = await generateUniqueReference(
-      flightData.flightNumber,
-      flightData.arrivalAirportId,
-      new Date()
-    );
-
-    console.log(`📋 Booking reference generated: ${bookingReference}`);
-
-    // ✅ STEP 9: Store complete booking in database
-    let booking;
-    try {
-      booking = await Booking.create({
-        userId: new mongoose.Types.ObjectId(userId),
-        flightId: new mongoose.Types.ObjectId(flightId),
-        seats,
-        price: bookingDetails.totalCost,
-        paymentId,
-        bookingReference,
-        status: "confirmed",
-        bookedAt: new Date(),
-        seatsBooked: bookingDetails.seatsBooked,
-        pricePerSeat: bookingDetails.pricePerSeat,
-        totalCost: bookingDetails.totalCost
-      });
-    } catch (dbError) {
-      console.error('❌ Database Error:', dbError);
-      return res.status(500).json({
-        success: false,
-        message: "Failed to create booking record in database",
-        error: dbError.message
-      });
-    }
-
-    console.log(`✅ Booking created successfully with reference: ${booking.bookingReference}`);
-
-    // ✅ STEP 10: Return comprehensive success response
-    res.status(201).json({
-      success: true,
-      message: "Booking completed and stored successfully",
-      booking: {
-        _id: booking._id,
+        message: 'Booking failed and has been cancelled',
         bookingReference: booking.bookingReference,
-        userId: booking.userId,
-        flightId: booking.flightId,
-        seats: booking.seats,
-        price: booking.price,
-        paymentId: booking.paymentId,
-        status: booking.status,
-        bookedAt: booking.bookedAt,
-        seatsBooked: booking.seatsBooked,
-        pricePerSeat: booking.pricePerSeat,
-        totalCost: booking.totalCost
-      },
-      flightUpdate: {
-        flightId: flightData._id,
-        flightNumber: flightData.flightNumber,
-        availableSeats: flightData.availableSeats,
-        previousSeats: flightData.availableSeats + seatsToBook,
-        seatsJustBooked: seatsToBook
-      },
-      pricingBreakdown: {
-        seatsBooked: bookingDetails.seatsBooked,
-        pricePerSeat: bookingDetails.pricePerSeat,
-        totalCost: bookingDetails.totalCost,
-        message: bookingDetails.message
-      },
-      availabilityInfo: {
-        checkedAt: new Date().toISOString(),
-        seatsAvailableAtBooking: availabilityCheck.data?.availability?.availableSeats,
-        demandLevel: availabilityCheck.data?.pricing?.demandLevel,
-        occupancyPercentage: availabilityCheck.data?.pricing?.occupancyPercentage
-      },
-      timestamp: new Date().toISOString()
-    });
+        error: error.message,
+        errorType: error.response ? "flight_service_error" : "booking_process_error"
+      });
+    }
 
   } catch (error) {
-    console.error('❌ Unexpected booking error:', error);
+    console.error('❌ Complete booking creation failed:', error);
     res.status(500).json({
       success: false,
-      message: "An unexpected error occurred during booking",
+      message: "Booking creation failed",
       error: error.message,
       errorType: "internal_server_error"
     });
   }
 };
 
-// ✅ HELPER FUNCTION: Check availability before booking (NEW)
+// Cancel a booking
+const cancelBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { reason = 'Cancelled by user', cancelledBy = 'user' } = req.body;
+    
+    console.log(`📋 Cancellation request for booking: ${bookingId}`);
+    
+    // Validate booking ID format
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid booking ID format'
+      });
+    }
+    
+    // Find the booking
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+    
+    // Check if booking can be cancelled
+    if (!booking.canBeCancelled) {
+      return res.status(400).json({
+        success: false,
+        message: `Booking cannot be cancelled. Current status: ${booking.status}`,
+        currentStatus: booking.status,
+        canBeCancelled: booking.canBeCancelled
+      });
+    }
+    
+    console.log(`✅ Booking ${booking.bookingReference} can be cancelled. Current status: ${booking.status}`);
+    
+    // Calculate refund amount
+    const refundAmount = booking.calculateRefundAmount();
+    console.log(`💰 Calculated refund amount: ₹${refundAmount}`);
+    
+    // Release seats back to flight service
+    console.log(`🔄 Releasing ${booking.seatsBooked} seats back to flight...`);
+    const seatReleaseResult = await releaseSeatsToFlightService(booking.flightId, booking.seatsBooked);
+    
+    if (!seatReleaseResult.success) {
+      console.warn(`⚠️ Seat release failed but proceeding with cancellation: ${seatReleaseResult.error}`);
+    }
+    
+    // Update booking status to cancelled
+    booking.updateBookingStatus('cancelled', reason, cancelledBy);
+    booking.cancellationReason = reason;
+    booking.cancelledBy = cancelledBy;
+    booking.refundAmount = refundAmount;
+    
+    if (refundAmount > 0) {
+      booking.refundStatus = 'pending';
+    }
+    
+    await booking.save();
+    
+    console.log(`❌ Booking ${booking.bookingReference} cancelled successfully`);
+    
+    // Process refund if applicable
+    if (refundAmount > 0) {
+      console.log(`💳 Initiating refund process for ₹${refundAmount}...`);
+      await processRefund(booking);
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Booking cancelled successfully',
+      booking: {
+        _id: booking._id,
+        bookingReference: booking.bookingReference,
+        status: booking.status,
+        cancelledAt: booking.cancelledAt,
+        cancellationReason: booking.cancellationReason,
+        cancelledBy: booking.cancelledBy,
+        refundAmount: booking.refundAmount,
+        refundStatus: booking.refundStatus,
+        seatsReleased: booking.seatsBooked
+      },
+      seatRelease: {
+        attempted: true,
+        successful: seatReleaseResult.success,
+        error: seatReleaseResult.error || null
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error cancelling booking:', error);
+    
+    if (error.message.includes('Invalid status transition')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Failed to cancel booking',
+      error: error.message
+    });
+  }
+};
+
+// Get booking status history
+const getBookingStatusHistory = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid booking ID format'
+      });
+    }
+    
+    const booking = await Booking.findById(bookingId).select('bookingReference status statusHistory canBeCancelled');
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        bookingReference: booking.bookingReference,
+        currentStatus: booking.status,
+        canBeCancelled: booking.canBeCancelled,
+        statusHistory: booking.statusHistory.sort((a, b) => new Date(a.changedAt) - new Date(b.changedAt))
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error getting booking status history:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get booking status history',
+      error: error.message
+    });
+  }
+};
+
+
+//  HELPER FUNCTION: Check availability before booking (NEW)
 const checkAvailabilityBeforeBooking = async (flightId, requestedSeats) => {
   try {
     console.log(`🔍 Checking availability: Flight ${flightId}, Seats ${requestedSeats}`);
@@ -298,7 +484,7 @@ const checkAvailabilityBeforeBooking = async (flightId, requestedSeats) => {
   }
 };
 
-// ✅ STANDALONE AVAILABILITY ENDPOINT (NEW)
+//  STANDALONE AVAILABILITY ENDPOINT
 const getFlightAvailability = async (req, res) => {
   try {
     const { flightId } = req.params;
@@ -645,11 +831,14 @@ async function generateUniqueReference(flightNumber, arrivalCode, bookedDate) {
 }
 
 //  MODULE EXPORTS
+
 module.exports = {
   createCompleteBooking,
   getBookingById,
   getUserBookings,
+  getBookingByReference,
   getFlightAvailability,
-  getBookingByReference
+  cancelBooking,
+  getBookingStatusHistory 
 };
 

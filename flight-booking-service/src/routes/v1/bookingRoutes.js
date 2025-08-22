@@ -60,4 +60,5 @@ router.get('/booking/:bookingId/status', async (req, res) => {
   }
 });
 
+
 module.exports = router;

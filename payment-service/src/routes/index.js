@@ -1,6 +1,6 @@
 const express = require('express');
 
-const v1Routes = require('./v1');
+const v1Routes = require('../routes/v1/paymentRoutes');
 
 const router = express.Router();
 

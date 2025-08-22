@@ -7,4 +7,8 @@ const bookingRoutes = require('./v1/bookingRoutes');
 router.get('/info', infoController);
 router.use('/v1/bookings', bookingRoutes);
 
+
+
+
+
 module.exports = router;

@@ -26,7 +26,7 @@ router.post('/verify-payment', paymentLimiter, verifyPayment);
 router.post('/refund/:paymentId', processRefund);
 router.get('/payment/:paymentId', getPaymentDetails);
 
-// Webhook endpoint (requires raw body parsing)
+// Webhook endpoint 
 router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);
 
 // Health check for payment service

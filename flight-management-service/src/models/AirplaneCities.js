@@ -7,8 +7,7 @@ const citySchema = new mongoose.Schema({
     minlength: [2, "City name must be at least 2 characters long"],
     maxlength: [100, "City name must not exceed 100 characters"],
     trim: true,
-    unique : true
-
+    unique: true,
   },
   state: {
     type: String,
@@ -16,25 +15,23 @@ const citySchema = new mongoose.Schema({
     minlength: [2, "State must be at least 2 characters long"],
     maxlength: [100, "State must not exceed 100 characters"],
     trim: true,
-    
   },
   country: {
     type: String,
     required: [true, "Country is required"],
     default: "India",
-    trim: true
+    trim: true,
   },
   airportCode: {
     type: String,
     required: [true, "Airport code is required"],
     uppercase: true,
-    match: [/^[A-Z]{3}$/, "Airport code must be a 3-letter uppercase code"]
+    match: [/^[A-Z]{3}$/, "Airport code must be a 3-letter uppercase code"],
   },
   createdAt: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 });
 
 module.exports = mongoose.model("City", citySchema);
-

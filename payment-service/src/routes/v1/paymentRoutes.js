@@ -24,6 +24,9 @@ const paymentLimiter = rateLimit({
 router.post('/create-order', paymentLimiter, createOrder);
 router.post('/verify-payment', paymentLimiter, verifyPayment);
 router.post('/refund/:paymentId', processRefund);
+
+
+/// satatus after success payment 
 router.get('/payment/:paymentId', getPaymentDetails);
 
 // Webhook endpoint 

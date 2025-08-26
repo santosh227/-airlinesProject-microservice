@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✈️ Confirm Flight Booking</title>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            max-width: 900px; 
+            margin: 20px auto; 
+            padding: 20px; 
+            background: #f0f2f5;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #1a202c;
+        }
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: #666;
+            font-size: 18px;
+        }
+        .section {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #4299e1;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .detail-label {
+            font-weight: 600;
+            color: #4a5568;
+        }
+        .detail-value {
+            font-weight: 600;
+            color: #1a202c;
+        }
+        .seats {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        .seat {
+            background: #48bb78;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .total-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .total-amount {
+            font-size: 28px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .pay-button {
+            background: linear-gradient(45deg, #48bb78, #38a169);
+            color: white;
+            padding: 16px 32px;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+        }
+        .pay-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
+        }
+        .pay-button:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: bold;
+            text-align: center;
+        }
+        .success { background: #c6f6d5; color: #276749; }
+        .error { background: #fed7d7; color: #c53030; }
+        .info { background: #bee3f8; color: #2a69ac; }
+        .back-button {
+            background: #e2e8f0;
+            color: #4a5568;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        .back-button:hover {
+            background: #cbd5e0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✈️ Confirm Your Flight Booking</h1>
+            <p>Review your booking details and proceed with payment</p>
+        </div>
+
+        <button onclick="goBack()" class="back-button">← Back to Booking Search</button>
+
+        <!-- Loading State -->
+        <div id="loading" class="loading">
+            <div>🔄 Loading your booking details...</div>
+            <div style="font-size: 14px; margin-top: 10px; color: #999;">
+                Fetching data from backend...
+            </div>
+        </div>
+
+        <!-- Dynamic Booking Details Container -->
+        <div id="booking-container" style="display: none;">
+            
+            <!-- Booking Information Section -->
+            <div class="section">
+                <div class="section-title">📋 Booking Information</div>
+                <div class="detail-row">
+                    <span class="detail-label">Booking Reference:</span>
+                    <span class="detail-value" id="booking-reference">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Booking Status:</span>
+                    <span class="detail-value" id="booking-status">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Booked At:</span>
+                    <span class="detail-value" id="booked-at">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Can Be Cancelled:</span>
+                    <span class="detail-value" id="can-cancel">-</span>
+                </div>
+            </div>
+
+            <!-- Seat Selection Section -->
+            <div class="section">
+                <div class="section-title">💺 Seat Selection</div>
+                <div class="detail-row">
+                    <span class="detail-label">Selected Seats:</span>
+                    <div id="selected-seats" class="seats">-</div>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Total Passengers:</span>
+                    <span class="detail-value" id="passenger-count">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Price per Seat:</span>
+                    <span class="detail-value" id="price-per-seat">-</span>
+                </div>
+            </div>
+
+            <!-- Payment Information Section -->
+            <div class="section">
+                <div class="section-title">💳 Payment Information</div>
+                <div class="detail-row">
+                    <span class="detail-label">Payment ID:</span>
+                    <span class="detail-value" id="payment-id">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Refund Status:</span>
+                    <span class="detail-value" id="refund-status">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Refund Amount:</span>
+                    <span class="detail-value" id="refund-amount">-</span>
+                </div>
+            </div>
+
+            <!-- Total Amount Section -->
+            <div class="total-section">
+                <div>Total Amount to Pay</div>
+                <div class="total-amount" id="total-amount">₹0</div>
+            </div>
+
+            <!-- Payment Button -->
+            <button id="pay-button" class="pay-button" onclick="initiatePayment()">
+                🔄 Loading...
+            </button>
+        </div>
+
+        <!-- Status Messages -->
+        <div id="status"></div>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURATION
+        // ==========================================
+        const PAYMENT_API_URL = 'http://localhost:5000/api/v1';
+        const BOOKING_API_URL = 'http://localhost:4000/api/v1/bookings';
+
+        // ==========================================
+        // GLOBAL VARIABLES
+        // ==========================================
+        let bookingData = null;
+        let paymentOrderData = null;
+
+        // ==========================================
+        // UTILITY FUNCTIONS
+        // ==========================================
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = message;
+        }
+
+        function formatCurrency(amount) {
+            if (amount === null || amount === undefined || isNaN(amount)) {
+                return '₹0';
+            }
+            return `₹${Number(amount).toLocaleString()}`;
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        }
+
+        function goBack() {
+            window.history.back();
+        }
+
+        // ==========================================
+        // GET BOOKING ID FROM URL
+        // ==========================================
+        function getBookingIdFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('bookingId') || urlParams.get('booking_id') || urlParams.get('id');
+        }
+
+        // ==========================================
+        // FETCH BOOKING DETAILS FROM YOUR EXACT API
+        // ==========================================
+        async function fetchBookingDetails() {
+            try {
+                const bookingId = getBookingIdFromUrl();
+                
+                if (!bookingId) {
+                    throw new Error('Booking ID not found in URL. Please add ?bookingId=YOUR_BOOKING_ID to the URL');
+                }
+
+                console.log('📡 Fetching booking details for ID:', bookingId);
+                showStatus('🔄 Loading booking details from backend...', 'info');
+
+                // Call your exact API endpoint
+                const response = await fetch(`${BOOKING_API_URL}/booking/${bookingId}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch booking: ${response.status} ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                console.log('📨 Full API Response:', result);
+
+                // Extract booking data from your API structure
+                if (result.success && result.booking) {
+                    bookingData = result.booking;
+                } else {
+                    throw new Error('No booking data found in response');
+                }
+
+                console.log('✅ Booking data extracted:', bookingData);
+                
+                renderBookingDetails();
+                showBookingContainer();
+                enablePaymentButton();
+                
+                showStatus('✅ Booking details loaded successfully!', 'success');
+                
+            } catch (error) {
+                console.error('❌ Error loading booking:', error);
+                showStatus(`❌ Error loading booking: ${error.message}`, 'error');
+            }
+        }
+
+        function showBookingContainer() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('booking-container').style.display = 'block';
+        }
+
+        // ==========================================
+        // RENDER ONLY ESSENTIAL DATA FROM YOUR API
+        // ==========================================
+        function renderBookingDetails() {
+            console.log('🎨 Rendering booking details from actual API data');
+
+            // Booking Information (Direct from your API)
+            document.getElementById('booking-reference').textContent = bookingData.bookingReference || 'N/A';
+            document.getElementById('booking-status').textContent = bookingData.status || 'N/A';
+            document.getElementById('booked-at').textContent = formatDate(bookingData.bookedAt);
+            document.getElementById('can-cancel').textContent = bookingData.canBeCancelled ? 'Yes' : 'No';
+
+            // Seat Information (Direct from your API)
+            const seatsContainer = document.getElementById('selected-seats');
+            if (bookingData.seats && bookingData.seats.length > 0) {
+                seatsContainer.innerHTML = bookingData.seats.map(seat => `<span class="seat">${seat}</span>`).join('');
+            } else {
+                seatsContainer.innerHTML = '<span style="color: #999;">No seats</span>';
+            }
+            
+            document.getElementById('passenger-count').textContent = bookingData.seatsBooked || 0;
+            document.getElementById('price-per-seat').textContent = formatCurrency(bookingData.pricePerSeat);
+
+            // Payment Information (Direct from your API)
+            document.getElementById('payment-id').textContent = bookingData.paymentId || 'N/A';
+            document.getElementById('refund-status').textContent = bookingData.refundStatus || 'N/A';
+            document.getElementById('refund-amount').textContent = formatCurrency(bookingData.refundAmount);
+
+            // Total Amount (Direct from your API)
+            document.getElementById('total-amount').textContent = formatCurrency(bookingData.totalCost);
+
+            // Store calculated total for payment
+            bookingData.calculatedTotal = bookingData.totalCost || bookingData.price || 0;
+        }
+
+        function enablePaymentButton() {
+            const payButton = document.getElementById('pay-button');
+            const amount = bookingData.calculatedTotal || 0;
+            
+            payButton.textContent = `💳 Pay ${formatCurrency(amount)} - Book Now`;
+            payButton.disabled = false;
+        }
+
+        // ==========================================
+        // PAYMENT INITIATION WITH ESSENTIAL DATA
+        // ==========================================
+        async function initiatePayment() {
+            try {
+                console.log('💳 Starting payment with booking data');
+                showStatus('🔄 Creating payment order...', 'info');
+                
+                const payButton = document.getElementById('pay-button');
+                payButton.disabled = true;
+                payButton.textContent = 'Creating Payment Order...';
+
+                // Create payment order payload using essential data
+                const paymentPayload = {
+                    bookingId: bookingData._id || bookingData.id,
+                    bookingReference: bookingData.bookingReference,
+                    userId: bookingData.userId,
+                    amount: bookingData.calculatedTotal,
+                    currency: 'INR',
+                    customerEmail: 'booking@airline.com',  // Placeholder since not in API
+                    customerPhone: '+919999999999'         // Placeholder since not in API
+                };
+
+                console.log('📤 Sending payment order request:', paymentPayload);
+
+                const orderResponse = await fetch(`${PAYMENT_API_URL}/create-order`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(paymentPayload)
+                });
+
+                const orderResult = await orderResponse.json();
+                console.log('📨 Payment order response:', orderResult);
+
+                if (!orderResult.success) {
+                    throw new Error(orderResult.message || 'Failed to create payment order');
+                }
+
+                paymentOrderData = orderResult.data;
+                showStatus('✅ Payment order created! Opening Razorpay...', 'success');
+
+                // Launch Razorpay with essential data
+                launchRazorpayCheckout();
+
+            } catch (error) {
+                console.error('❌ Payment error:', error);
+                showStatus(`❌ Payment failed: ${error.message}`, 'error');
+                
+                const payButton = document.getElementById('pay-button');
+                payButton.disabled = false;
+                payButton.textContent = `💳 Pay ${formatCurrency(bookingData.calculatedTotal)} - Book Now`;
+            }
+        }
+
+        // ==========================================
+        // RAZORPAY CHECKOUT
+        // ==========================================
+        function launchRazorpayCheckout() {
+            console.log('🚀 Launching Razorpay checkout');
+
+            const options = {
+                key: paymentOrderData.key,
+                amount: paymentOrderData.amount,
+                currency: paymentOrderData.currency,
+                name: 'Airlines Booking System',
+                description: `Booking ${bookingData.bookingReference}`,
+                order_id: paymentOrderData.razorpayOrderId,
+                
+                handler: async function (response) {
+                    await handlePaymentSuccess(response);
+                },
+                
+                prefill: {
+                    name: 'Booking Holder',
+                    email: 'booking@airline.com',
+                    contact: '+919999999999'
+                },
+                
+                notes: {
+                    bookingId: bookingData._id,
+                    bookingReference: bookingData.bookingReference
+                },
+                
+                theme: {
+                    color: '#4299e1'
+                },
+                
+                modal: {
+                    ondismiss: function() {
+                        console.log('💔 Payment cancelled by user');
+                        const payButton = document.getElementById('pay-button');
+                        payButton.disabled = false;
+                        payButton.textContent = `💳 Pay ${formatCurrency(bookingData.calculatedTotal)} - Book Now`;
+                        showStatus('❌ Payment cancelled', 'error');
+                    }
+                }
+            };
+
+            const rzp = new Razorpay(options);
+            
+            rzp.on('payment.failed', function (response) {
+                console.error('💥 Payment failed:', response.error);
+                showStatus(`❌ Payment Failed: ${response.error.description}`, 'error');
+                
+                const payButton = document.getElementById('pay-button');
+                payButton.disabled = false;
+                payButton.textContent = `💳 Pay ${formatCurrency(bookingData.calculatedTotal)} - Book Now`;
+            });
+
+            rzp.open();
+        }
+
+        // ==========================================
+        // PAYMENT SUCCESS HANDLING
+        // ==========================================
+        async function handlePaymentSuccess(response) {
+            try {
+                console.log('🎉 Payment successful! Verifying...', response);
+                showStatus('🔄 Payment successful! Verifying...', 'info');
+
+                const verifyPayload = {
+                    paymentId: paymentOrderData.paymentId,
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature: response.razorpay_signature
+                };
+
+                const verifyResponse = await fetch(`${PAYMENT_API_URL}/verify-payment`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(verifyPayload)
+                });
+
+                const verifyResult = await verifyResponse.json();
+
+                if (verifyResult.success) {
+                    showStatus(`🎉 Booking Confirmed! 
+                        <br><strong>Payment Successful!</strong>
+                        <br>Booking Reference: ${bookingData.bookingReference}
+                        <br>Payment ID: ${response.razorpay_payment_id}
+                        <br>Amount: ${formatCurrency(bookingData.calculatedTotal)}`, 'success');
+                    
+                    const payButton = document.getElementById('pay-button');
+                    payButton.style.background = '#48bb78';
+                    payButton.textContent = '✅ Booking Confirmed';
+                    payButton.disabled = true;
+                    
+                } else {
+                    throw new Error(verifyResult.message || 'Payment verification failed');
+                }
+
+            } catch (error) {
+                console.error('❌ Verification error:', error);
+                showStatus(`❌ Verification failed: ${error.message}`, 'error');
+            }
+        }
+
+        // ==========================================
+        // INITIALIZE ON PAGE LOAD
+        // ==========================================
+        window.addEventListener('load', function() {
+            console.log('🚀 Page loaded - starting fetch...');
+            fetchBookingDetails();
+        });
+    </script>
+</body>
+</html>

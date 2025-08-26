@@ -19,7 +19,7 @@ async function releaseSeatsToFlightService(flightId, seatsToRelease) {
   try {
     const FLIGHT_SERVICE_URL = process.env.FLIGHT_SERVICE_URL || 'http://localhost:3000';
     
-    console.log(`🔄 Releasing ${seatsToRelease} seats for flight ${flightId}`);
+    console.log(` Releasing ${seatsToRelease} seats for flight ${flightId}`);
     
     const response = await axios.post(
       `${FLIGHT_SERVICE_URL}/api/v1/flights/${flightId}/releaseSeats`,
@@ -31,13 +31,13 @@ async function releaseSeatsToFlightService(flightId, seatsToRelease) {
     );
     
     if (response.data.success) {
-      console.log(`✅ Successfully released ${seatsToRelease} seats`);
+      console.log(` Successfully released ${seatsToRelease} seats`);
       return response.data;
     } else {
       throw new Error('Flight service returned unsuccessful response');
     }
   } catch (error) {
-    console.error('❌ Error releasing seats to flight service:', error.message);
+    console.error(' Error releasing seats to flight service:', error.message);
     // Don't throw error here - cancellation should still proceed even if seat release fails
     return { success: false, error: error.message };
   }
@@ -46,7 +46,7 @@ async function releaseSeatsToFlightService(flightId, seatsToRelease) {
 // Helper function to simulate refund processing
 async function processRefund(booking) {
   try {
-    console.log(`💰 Processing refund for booking ${booking.bookingReference}`);
+    console.log(` Processing refund for booking ${booking.bookingReference}`);
     
     // Update refund status to processing
     booking.refundStatus = 'processing';
@@ -59,15 +59,15 @@ async function processRefund(booking) {
         if (updatedBooking) {
           updatedBooking.refundStatus = 'completed';
           await updatedBooking.save();
-          console.log(`✅ Refund completed for booking ${updatedBooking.bookingReference}`);
+          console.log(` Refund completed for booking ${updatedBooking.bookingReference}`);
         }
       } catch (error) {
-        console.error('❌ Error completing refund:', error);
+        console.error(' Error completing refund:', error);
       }
     }, 5000); // 5 seconds delay to simulate processing
     
   } catch (error) {
-    console.error('❌ Error processing refund:', error);
+    console.error(' Error processing refund:', error);
     booking.refundStatus = 'failed';
     await booking.save();
   }
@@ -76,7 +76,7 @@ async function processRefund(booking) {
 //Create Complete Booking with Status Management
 const createCompleteBooking = async (req, res) => {
   try {
-    // ✅ STEP 1: Initial request debugging and validation (your existing validation code)
+    
     console.log('=== BOOKING REQUEST DEBUG ===');
     console.log('Request body:', req.body);
     console.log('============================');
@@ -95,7 +95,7 @@ const createCompleteBooking = async (req, res) => {
       paymentId = null
     } = req.body;
 
-    // Field validations (your existing validation logic)
+    // Field validations
     if (!userId) {
       return res.status(400).json({
         success: false,
@@ -144,13 +144,13 @@ const createCompleteBooking = async (req, res) => {
     }
 
     const seatsToBook = seats.length;
-    console.log(`📋 Processing booking for ${seatsToBook} seats...`);
+    console.log(` Processing booking for ${seatsToBook} seats...`);
 
-    // ✅ STEP 2: Generate booking reference
+    //  STEP 2: Generate booking reference
     const bookingReference = await generateUniqueReference('FL', 'DEST', new Date());
 
-    // ✅ STEP 3: Initialize booking with 'initialized' status
-    console.log('📋 Creating initial booking record...');
+    //  STEP 3: Initialize booking with 'initialized' status
+    console.log(' Creating initial booking record...');
     
     let booking = new Booking({
       userId: new mongoose.Types.ObjectId(userId),
@@ -174,29 +174,29 @@ const createCompleteBooking = async (req, res) => {
     });
 
     await booking.save();
-    console.log(`✅ Booking ${booking.bookingReference} initialized with ID: ${booking._id}`);
+    console.log(` Booking ${booking.bookingReference} initialized with ID: ${booking._id}`);
 
-    // ✅ STEP 4: Update status to pending_payment and proceed with flight booking
+    //  STEP 4: Update status to pending_payment and proceed with flight booking
     try {
       booking.updateBookingStatus('pending_payment', 'Proceeding with seat booking and payment processing', 'system');
       await booking.save();
 
-      // ✅ STEP 5: Pre-booking availability check (your existing code)
-      // console.log('🔍 Performing pre-booking availability check...');
+    //  STEP 5: Pre-booking availability check (your existing code)
+      // console.log(' Performing pre-booking availability check...');
       // const availabilityCheck = await checkAvailabilityBeforeBooking(flightId, seatsToBook);
       
       // if (!availabilityCheck.available) {
       //   throw new Error(`Insufficient seats available: ${availabilityCheck.message}`);
       // }
 
-      // console.log('✅ Availability check passed, proceeding with seat booking...');
+      // console.log(' Availability check passed, proceeding with seat booking...');
 
-      // ✅ STEP 6: Update status to payment_processing
+      // STEP 6: Update status to payment_processing
       booking.updateBookingStatus('payment_processing', 'Availability confirmed, processing seat booking', 'system');
       await booking.save();
 
-      // ✅ STEP 7: Call Flight service to book seats (your existing code)
-      console.log(`🛫 Calling Flight Service to book ${seatsToBook} seats...`);
+      //  STEP 7: Call Flight service to book seats (your existing code)
+      console.log(` Calling Flight Service to book ${seatsToBook} seats...`);
       
       const FLIGHT_SERVICE_URL = process.env.FLIGHT_SERVICE_URL || 'http://localhost:3000';
       const bookingResponse = await axios.post(
@@ -215,19 +215,19 @@ const createCompleteBooking = async (req, res) => {
       const flightData = bookingResponse.data.flight;
       const bookingDetails = bookingResponse.data.bookingDetails;
 
-      // ✅ STEP 8: Update booking with pricing details
+      //  STEP 8: Update booking with pricing details
       booking.price = bookingDetails.totalCost;
       booking.pricePerSeat = bookingDetails.pricePerSeat;
       booking.totalCost = bookingDetails.totalCost;
       booking.seatsBooked = bookingDetails.seatsBooked;
 
-      // ✅ STEP 9: Confirm the booking
+      // . STEP 9: Confirm the booking
       booking.updateBookingStatus('confirmed', 'Payment processed and seats confirmed', 'system');
       await booking.save();
 
-      console.log(`✅ Booking ${booking.bookingReference} completed successfully`);
+      console.log(`. Booking ${booking.bookingReference} completed successfully`);
 
-      // ✅ STEP 10: Return success response
+      // . STEP 10: Return success response
       res.status(201).json({
         success: true,
         message: "Booking completed and confirmed successfully",
@@ -263,8 +263,8 @@ const createCompleteBooking = async (req, res) => {
       });
 
     } catch (error) {
-      // ✅ STEP 11: Handle failure - cancel the booking
-      console.error('❌ Booking process failed, cancelling booking:', error.message);
+      // . STEP 11: Handle failure - cancel the booking
+      console.error('. Booking process failed, cancelling booking:', error.message);
       
       try {
         booking.updateBookingStatus('cancelled', `Booking process failed: ${error.message}`, 'system');
@@ -272,9 +272,9 @@ const createCompleteBooking = async (req, res) => {
         booking.cancelledBy = 'system';
         await booking.save();
         
-        console.log(`❌ Booking ${booking.bookingReference} cancelled due to processing failure`);
+        console.log(`. Booking ${booking.bookingReference} cancelled due to processing failure`);
       } catch (cancelError) {
-        console.error('❌ Error cancelling failed booking:', cancelError);
+        console.error('. Error cancelling failed booking:', cancelError);
       }
       
       return res.status(400).json({
@@ -287,7 +287,7 @@ const createCompleteBooking = async (req, res) => {
     }
 
   } catch (error) {
-    console.error('❌ Complete booking creation failed:', error);
+    console.error('. Complete booking creation failed:', error);
     res.status(500).json({
       success: false,
       message: "Booking creation failed",
@@ -303,7 +303,7 @@ const cancelBooking = async (req, res) => {
     const { bookingId } = req.params;
     const { reason = 'Cancelled by user', cancelledBy = 'user' } = req.body;
     
-    console.log(`📋 Cancellation request for booking: ${bookingId}`);
+    console.log(` Cancellation request for booking: ${bookingId}`);
     
     // Validate booking ID format
     if (!mongoose.Types.ObjectId.isValid(bookingId)) {
@@ -332,18 +332,18 @@ const cancelBooking = async (req, res) => {
       });
     }
     
-    console.log(`✅ Booking ${booking.bookingReference} can be cancelled. Current status: ${booking.status}`);
+    console.log(` Booking ${booking.bookingReference} can be cancelled. Current status: ${booking.status}`);
     
     // Calculate refund amount
     const refundAmount = booking.calculateRefundAmount();
-    console.log(`💰 Calculated refund amount: ₹${refundAmount}`);
+    console.log(`Calculated refund amount: ₹${refundAmount}`);
     
     // Release seats back to flight service
-    console.log(`🔄 Releasing ${booking.seatsBooked} seats back to flight...`);
+    console.log(` Releasing ${booking.seatsBooked} seats back to flight...`);
     const seatReleaseResult = await releaseSeatsToFlightService(booking.flightId, booking.seatsBooked);
     
     if (!seatReleaseResult.success) {
-      console.warn(`⚠️ Seat release failed but proceeding with cancellation: ${seatReleaseResult.error}`);
+      console.warn(` release failed but proceeding with cancellation: ${seatReleaseResult.error}`);
     }
     
     // Update booking status to cancelled
@@ -358,11 +358,11 @@ const cancelBooking = async (req, res) => {
     
     await booking.save();
     
-    console.log(`❌ Booking ${booking.bookingReference} cancelled successfully`);
+    console.log(`. Booking ${booking.bookingReference} cancelled successfully`);
     
     // Process refund if applicable
     if (refundAmount > 0) {
-      console.log(`💳 Initiating refund process for ₹${refundAmount}...`);
+      console.log(` Initiating refund process for ₹${refundAmount}...`);
       await processRefund(booking);
     }
     
@@ -388,7 +388,7 @@ const cancelBooking = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Error cancelling booking:', error);
+    console.error('. Error cancelling booking:', error);
     
     if (error.message.includes('Invalid status transition')) {
       return res.status(400).json({
@@ -436,7 +436,7 @@ const getBookingStatusHistory = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Error getting booking status history:', error);
+    console.error('. Error getting booking status history:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to get booking status history',
@@ -451,8 +451,8 @@ const checkAvailabilityBeforeBooking = async (flightId, requestedSeats) => {
   try {
     const FLIGHT_SERVICE_URL = process.env.FLIGHT_SERVICE_URL || 'http://localhost:3000';
     
-    console.log(`🔍 Checking availability for ${requestedSeats} seats on flight ${flightId}`);
-    console.log(`🌐 Flight service URL: ${FLIGHT_SERVICE_URL}`);
+    console.log(` Checking availability for ${requestedSeats} seats on flight ${flightId}`);
+    console.log(` Flight service URL: ${FLIGHT_SERVICE_URL}`);
     
     const response = await axios.get(
       `${FLIGHT_SERVICE_URL}/api/v1/flights/${flightId}/availability`,
@@ -462,19 +462,19 @@ const checkAvailabilityBeforeBooking = async (flightId, requestedSeats) => {
       }
     );
     
-    console.log('📊 Flight service response:', response.data);
+    console.log(' Flight service response:', response.data);
     
     if (response.data && response.data.success) {
       const availableSeats = response.data.data?.availability?.availableSeats || 0;
       
       if (availableSeats >= requestedSeats) {
-        console.log(`✅ Availability confirmed: ${availableSeats} seats available, need ${requestedSeats}`);
+        console.log(`Availability confirmed: ${availableSeats} seats available, need ${requestedSeats}`);
         return { 
           available: true, 
           data: response.data.data 
         };
       } else {
-        console.log(`❌ Insufficient seats: ${availableSeats} available, need ${requestedSeats}`);
+        console.log(` Insufficient seats: ${availableSeats} available, need ${requestedSeats}`);
         return { 
           available: false, 
           message: `Only ${availableSeats} seats available, requested ${requestedSeats}`,
@@ -482,7 +482,7 @@ const checkAvailabilityBeforeBooking = async (flightId, requestedSeats) => {
         };
       }
     } else {
-      console.error('❌ Flight service returned unsuccessful response:', response.data);
+      console.error(' Flight service returned unsuccessful response:', response.data);
       return { 
         available: false, 
         message: 'Flight service returned error response',
@@ -490,7 +490,7 @@ const checkAvailabilityBeforeBooking = async (flightId, requestedSeats) => {
       };
     }
   } catch (error) {
-    console.error('❌ Availability check failed:', {
+    console.error('. Availability check failed:', {
       message: error.message,
       code: error.code,
       status: error.response?.status,
@@ -537,7 +537,7 @@ const getFlightAvailability = async (req, res) => {
   }
 };
 
-// ✅ EXISTING HELPER FUNCTIONS (unchanged)
+// . EXISTING HELPER FUNCTIONS (unchanged)
 function generateBookingReference(flightNumber, arrivalCode, bookedDate) {
   const date = new Date(bookedDate);
   const month = String(date.getMonth() + 1).padStart(2, '0');

@@ -3,11 +3,12 @@ const app = express();
 const dotenv = require('dotenv');
 dotenv.config();
 const mongoose = require('mongoose');
+const cors = require('cors')
 
 // CRITICAL: JSON middleware MUST come first
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
+app.use(cors());
 //  Routes come AFTER middleware
 const apiroutes = require('./routes/index');
 app.use('/api', apiroutes);

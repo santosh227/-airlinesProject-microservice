@@ -9,7 +9,7 @@ class RazorpayService {
       key_secret: process.env.RAZORPAY_SECRET
     });
     
-    console.log('🔑 Razorpay Service initialized with key:', process.env.RAZORPAY_KEY_ID?.substring(0, 12) + '...');
+    console.log(' Razorpay Service initialized with key:', process.env.RAZORPAY_KEY_ID?.substring(0, 12) + '...');
   }
 
   // Create Razorpay Order
@@ -23,7 +23,7 @@ class RazorpayService {
         payment_capture: 1 // Auto capture payment
       };
 
-      console.log('💰 Creating Razorpay order:', { 
+      console.log(' Creating Razorpay order:', { 
         amount: options.amount, 
         currency, 
         receipt: receiptId 
@@ -31,7 +31,7 @@ class RazorpayService {
       
       const order = await this.razorpay.orders.create(options);
       
-      console.log('✅ Razorpay order created successfully:', order.id);
+      console.log('Razorpay order created successfully:', order.id);
 
       return {
         success: true,
@@ -43,7 +43,7 @@ class RazorpayService {
       };
       
     } catch (error) {
-      console.error('❌ Razorpay Order Creation Error:', error);
+      console.error(' Razorpay Order Creation Error:', error);
       return {
         success: false,
         error: error.message,
@@ -63,11 +63,11 @@ class RazorpayService {
       
       const isVerified = expectedSignature === razorpaySignature;
       
-      console.log(isVerified ? '✅ Payment signature verified' : '❌ Payment signature verification failed');
+      console.log(isVerified ? ' Payment signature verified' : ' Payment signature verification failed');
       
       return isVerified;
     } catch (error) {
-      console.error('❌ Payment signature verification error:', error);
+      console.error(' Payment signature verification error:', error);
       return false;
     }
   }
@@ -81,7 +81,7 @@ class RazorpayService {
         payment: payment
       };
     } catch (error) {
-      console.error('❌ Error fetching payment details:', error);
+      console.error(' Error fetching payment details:', error);
       return {
         success: false,
         error: error.message
@@ -101,11 +101,11 @@ class RazorpayService {
         refundData.amount = Math.round(amount * 100); // Convert to paise
       }
 
-      console.log(`💸 Creating refund for payment ${paymentId}:`, refundData);
+      console.log(` Creating refund for payment ${paymentId}:`, refundData);
       
       const refund = await this.razorpay.payments.refund(paymentId, refundData);
       
-      console.log('✅ Refund created successfully:', refund.id);
+      console.log('Refund created successfully:', refund.id);
 
       return {
         success: true,
@@ -117,7 +117,7 @@ class RazorpayService {
       };
       
     } catch (error) {
-      console.error('❌ Razorpay Refund Error:', error);
+      console.error(' Razorpay Refund Error:', error);
       return {
         success: false,
         error: error.message,
@@ -139,7 +139,7 @@ class RazorpayService {
         Buffer.from(expectedSignature, 'utf8')
       );
     } catch (error) {
-      console.error('❌ Webhook signature verification failed:', error);
+      console.error(' Webhook signature verification failed:', error);
       return false;
     }
   }

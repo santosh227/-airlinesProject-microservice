@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title> Airlines Booking Payment Portal</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+
+      .container {
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        max-width: 500px;
+        width: 100%;
+        animation: slideUp 0.6s ease-out;
+      }
+
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .logo {
+        font-size: 48px;
+        margin-bottom: 10px;
+      }
+
+      .title {
+        color: #2c3e50;
+        font-size: 28px;
+        font-weight: 600;
+        margin-bottom: 10px;
+      }
+
+      .subtitle {
+        color: #7f8c8d;
+        font-size: 16px;
+        margin-bottom: 40px;
+        line-height: 1.5;
+      }
+
+      .form-container {
+        margin-bottom: 30px;
+      }
+
+      .input-group {
+        position: relative;
+        margin-bottom: 25px;
+      }
+
+      .input-label {
+        display: block;
+        color: #34495e;
+        font-weight: 600;
+        margin-bottom: 8px;
+        text-align: left;
+      }
+
+      .input-field {
+        width: 100%;
+        padding: 15px 20px;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        font-size: 16px;
+        transition: all 0.3s ease;
+        background-color: #f8f9fa;
+      }
+
+      .input-field:focus {
+        outline: none;
+        border-color: #667eea;
+        background-color: white;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        transform: translateY(-2px);
+      }
+
+      .input-field::placeholder {
+        color: #adb5bd;
+      }
+
+      .pay-button {
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        padding: 16px 40px;
+        font-size: 18px;
+        font-weight: 600;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        width: 100%;
+        margin-top: 10px;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+      }
+
+      .pay-button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+      }
+
+      .pay-button:active {
+        transform: translateY(-1px);
+      }
+
+      .pay-button:disabled {
+        background: #bdc3c7;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .sample-ids {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 25px;
+        text-align: left;
+      }
+
+      .sample-title {
+        color: #2c3e50;
+        font-weight: 600;
+        margin-bottom: 15px;
+        text-align: center;
+      }
+
+      .sample-id {
+        background: white;
+        padding: 12px 15px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        border: 1px solid #e9ecef;
+        font-family: "Monaco", "Courier New", monospace;
+        font-size: 14px;
+        color: #495057;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .sample-id:hover {
+        border-color: #667eea;
+        background: #f0f0ff;
+      }
+
+      .sample-id:last-child {
+        margin-bottom: 0;
+      }
+
+      .copy-btn {
+        background: #667eea;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .copy-btn:hover {
+        background: #5a67d8;
+      }
+
+      .status {
+        margin-top: 20px;
+        padding: 12px;
+        border-radius: 8px;
+        font-weight: 500;
+        display: none;
+      }
+
+      .status.success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+
+      .status.error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+
+      .features {
+        margin-top: 30px;
+        text-align: left;
+      }
+
+      .feature {
+        display: flex;
+        align-items: center;
+        margin-bottom: 12px;
+        color: #6c757d;
+        font-size: 14px;
+      }
+
+      .feature-icon {
+        color: #28a745;
+        margin-right: 10px;
+        font-size: 16px;
+      }
+
+      @media (max-width: 600px) {
+        .container {
+          padding: 30px 20px;
+          margin: 10px;
+        }
+
+        .title {
+          font-size: 24px;
+        }
+
+        .subtitle {
+          font-size: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+     
+      <h1 class="title">Airlines Payment Portal</h1>
+      <p class="subtitle">
+        Enter your booking ID to review flight details and complete payment
+        securely
+      </p>
+
+      <div class="form-container">
+        <div class="input-group">
+          <label for="bookingId" class="input-label">Booking ID</label>
+          <input
+            type="text"
+            id="bookingId"
+            class="input-field"
+            placeholder="Enter your booking ID (e.g., 69e567f012g345h678i901j2)"
+            maxlength="24"
+            autocomplete="off"
+          />
+        </div>
+
+        <button onclick="redirectToPayment()" class="pay-button" id="payButton">
+           Continue to Payment
+        </button>
+      </div>
+
+      <!-- Sample Booking IDs for Testing -->
+      <div class="sample-ids">
+        <div class="sample-title">📋 Sample Booking IDs for Testing</div>
+
+        <div
+          class="sample-id"
+          onclick="useBookingId('69e567f012g345h678i901j2')"
+        >
+          <span>69e567f012g345h678i901j2</span>
+          <button
+            class="copy-btn"
+            onclick="copyToClipboard('69e567f012g345h678i901j2', event)"
+          >
+            Copy
+          </button>
+        </div>
+
+        <div
+          class="sample-id"
+          onclick="useBookingId('67b234c789d012e345f678a9')"
+        >
+          <span>67b234c789d012e345f678a9</span>
+          <button
+            class="copy-btn"
+            onclick="copyToClipboard('67b234c789d012e345f678a9', event)"
+          >
+            Copy
+          </button>
+        </div>
+
+        <div
+          class="sample-id"
+          onclick="useBookingId('68c345d890e123f456g789b0')"
+        >
+          <span>68c345d890e123f456g789b0</span>
+          <button
+            class="copy-btn"
+            onclick="copyToClipboard('68c345d890e123f456g789b0', event)"
+          >
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <!-- Features List -->
+      <div class="features">
+        <div class="feature">
+          <span class="feature-icon">✓</span>
+          <span>Secure payment processing with Razorpay</span>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">✓</span>
+          <span>Real-time booking verification</span>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">✓</span>
+          <span>Dynamic flight and passenger details</span>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">✓</span>
+          <span>Test mode - No real money charged</span>
+        </div>
+      </div>
+
+      <div id="status" class="status"></div>
+    </div>
+
+    <script>
+      // Auto-focus on input field when page loads
+      window.addEventListener("load", function () {
+        document.getElementById("bookingId").focus();
+      });
+
+      // Handle Enter key press
+      document
+        .getElementById("bookingId")
+        .addEventListener("keypress", function (e) {
+          if (e.key === "Enter") {
+            redirectToPayment();
+          }
+        });
+
+      // Real-time validation
+      document
+        .getElementById("bookingId")
+        .addEventListener("input", function (e) {
+          const value = e.target.value;
+          const button = document.getElementById("payButton");
+          const status = document.getElementById("status");
+
+          status.style.display = "none";
+
+          if (value.length === 0) {
+            button.disabled = false;
+            button.textContent = " Continue to Payment";
+            return;
+          }
+
+          // Check if it's a valid MongoDB ObjectId (24 hex characters)
+          const isValidObjectId = /^[a-fA-F0-9]{24}$/.test(value);
+
+          if (value.length === 24 && isValidObjectId) {
+            button.disabled = false;
+            button.textContent = " Continue to Payment";
+            showStatus("Valid booking ID format", "success");
+          } else if (value.length < 24) {
+            button.disabled = false;
+            button.textContent = ` Continue to Payment (${
+              24 - value.length
+            } more chars)`;
+          } else {
+            button.disabled = false;
+            button.textContent = " Continue to Payment";
+            showStatus(
+              "Invalid booking ID format. Should be 24 characters.",
+              "error"
+            );
+          }
+        });
+
+      function redirectToPayment() {
+        const bookingId = document.getElementById("bookingId").value.trim();
+        const button = document.getElementById("payButton");
+
+        if (!bookingId) {
+          showStatus("Please enter a booking ID", "error");
+          return;
+        }
+
+        // Show loading state
+        button.disabled = true;
+        button.textContent = " Redirecting...";
+
+        // Add a small delay for better UX
+        setTimeout(() => {
+          window.location.href = `dynamic-payment-page.html?bookingId=${bookingId}`;
+        }, 500);
+      }
+
+      function useBookingId(id) {
+        document.getElementById("bookingId").value = id;
+        document.getElementById("bookingId").dispatchEvent(new Event("input"));
+        showStatus(
+          "Booking ID selected! Click Continue to Payment.",
+          "success"
+        );
+      }
+
+      function copyToClipboard(text, event) {
+        event.stopPropagation(); // Prevent triggering the parent click
+
+        if (navigator.clipboard) {
+          navigator.clipboard
+            .writeText(text)
+            .then(() => {
+              showStatus("Booking ID copied to clipboard!", "success");
+            })
+            .catch(() => {
+              fallbackCopyTextToClipboard(text);
+            });
+        } else {
+          fallbackCopyTextToClipboard(text);
+        }
+      }
+
+      function fallbackCopyTextToClipboard(text) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+          document.execCommand("copy");
+          showStatus("Booking ID copied to clipboard!", "success");
+        } catch (err) {
+          showStatus("Failed to copy booking ID", "error");
+        }
+
+        document.body.removeChild(textArea);
+      }
+
+      function showStatus(message, type) {
+        const status = document.getElementById("status");
+        status.textContent = message;
+        status.className = `status ${type}`;
+        status.style.display = "block";
+
+        if (type === "success") {
+          setTimeout(() => {
+            status.style.display = "none";
+          }, 3000);
+        }
+      }
+
+      // Add some keyboard shortcuts
+      document.addEventListener("keydown", function (e) {
+        // Ctrl/Cmd + Enter to submit
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+          redirectToPayment();
+        }
+
+        // Escape to clear input
+        if (e.key === "Escape") {
+          document.getElementById("bookingId").value = "";
+          document
+            .getElementById("bookingId")
+            .dispatchEvent(new Event("input"));
+        }
+      });
+    </script>
+  </body>
+</html>

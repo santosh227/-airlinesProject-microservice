@@ -336,7 +336,7 @@ const getAllFlightsByFilter = async (req, res) => {
 /// Booking cancellation
 const releaseSeats = async (req, res) => {
   try {
-    console.log('🔄 Releasing seats - Request received');
+    console.log(' Releasing seats - Request received');
     const { flightId } = req.params;
     const { seatsToRelease } = req.body;
     
@@ -364,7 +364,7 @@ const releaseSeats = async (req, res) => {
       });
     }
     
-    console.log(`✈️ Flight ${flight.flightNumber}: Current available seats: ${flight.availableSeats}`);
+    console.log(` Flight ${flight.flightNumber}: Current available seats: ${flight.availableSeats}`);
     
     // Release seats (add back to available seats)
     const previousAvailableSeats = flight.availableSeats;
@@ -377,7 +377,7 @@ const releaseSeats = async (req, res) => {
     
     await flight.save();
     
-    console.log(`✅ Seats released: ${seatsToRelease}, New available seats: ${flight.availableSeats}`);
+    console.log(` Seats released: ${seatsToRelease}, New available seats: ${flight.availableSeats}`);
     
     res.status(200).json({
       success: true,
@@ -393,7 +393,7 @@ const releaseSeats = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Error releasing seats:', error);
+    console.error(' Error releasing seats:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to release seats',

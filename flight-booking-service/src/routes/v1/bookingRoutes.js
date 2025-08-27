@@ -18,7 +18,7 @@ const limiter = require('../../common/rate-limit');
 const idempotency = require('../../middlewares/idempotency');
 
 
-router.post('/book', limiter, idempotency, createCompleteBooking);
+router.post('/book', idempotency, createCompleteBooking);
 router.get('/booking/:bookingId', getBookingById);
 router.get('/user/:userId', getUserBookings);
 router.get('/reference/:bookingRef', getBookingByReference);

@@ -1,21 +1,27 @@
-const Airplane = require('../models/AirPlanes');
-// POST AIRPLANE DATA 
+const Airplane = require("../models/AirPlanes");
+// POST AIRPLANE DATA
 const createAirplane = async (req, res) => {
   try {
     const { model, manufacturer, capacity, range, status } = req.body;
 
-    const newAirplane = new Airplane({ model, manufacturer, capacity, range, status });
+    const newAirplane = new Airplane({
+      model,
+      manufacturer,
+      capacity,
+      range,
+      status,
+    });
     const savedAirplane = await newAirplane.save();
 
     res.status(201).json({
       success: true,
-      message: 'Airplane added successfully',
+      message: "Airplane added successfully",
       data: savedAirplane,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Failed to add airplane',
+      message: "Failed to add airplane",
       error: error.message,
     });
   }
@@ -28,13 +34,13 @@ const getAirplane = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'All airplanes fetched successfully.',
+      message: "All airplanes fetched successfully.",
       data: airplanes,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch airplanes.',
+      message: "Failed to fetch airplanes.",
       error: error.message,
     });
   }
@@ -49,24 +55,23 @@ const getAirplaneById = async (req, res) => {
     if (!airplane) {
       return res.status(404).json({
         success: false,
-        message: 'Airplane not found.',
+        message: "Airplane not found.",
       });
     }
 
     res.status(200).json({
       success: true,
-      message: 'Airplane fetched successfully.',
+      message: "Airplane fetched successfully.",
       data: airplane,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch airplane.',
+      message: "Failed to fetch airplane.",
       error: error.message,
     });
   }
 };
-
 
 const updateAirplaneById = async (req, res) => {
   try {
@@ -74,31 +79,30 @@ const updateAirplaneById = async (req, res) => {
     const updates = req.body;
 
     const updatedAirplane = await Airplane.findByIdAndUpdate(id, updates, {
-      new: true,             // return the updated document
-      runValidators: true,   // ensure validations are run
+      new: true, // return the updated document
+      runValidators: true, // ensure validations are run
     });
 
     if (!updatedAirplane) {
       return res.status(404).json({
         success: false,
-        message: 'Airplane not found.',
+        message: "Airplane not found.",
       });
     }
 
     res.status(200).json({
       success: true,
-      message: 'Airplane updated successfully.',
+      message: "Airplane updated successfully.",
       data: updatedAirplane,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Failed to update airplane.',
+      message: "Failed to update airplane.",
       error: error.message,
     });
   }
 };
-
 
 const deleteAirplaneById = async (req, res) => {
   try {
@@ -109,26 +113,27 @@ const deleteAirplaneById = async (req, res) => {
     if (!deletedAirplane) {
       return res.status(404).json({
         success: false,
-        message: 'Airplane not found.',
+        message: "Airplane not found.",
       });
     }
 
     res.status(200).json({
       success: true,
-      message: 'Airplane deleted successfully.',
+      message: "Airplane deleted successfully.",
       data: deletedAirplane,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Failed to delete airplane.',
+      message: "Failed to delete airplane.",
       error: error.message,
     });
   }
 };
-module.exports = { createAirplane,
-                   getAirplane,
-                   getAirplaneById,
-                   updateAirplaneById,
-                   deleteAirplaneById
- };
+module.exports = {
+  createAirplane,
+  getAirplane,
+  getAirplaneById,
+  updateAirplaneById,
+  deleteAirplaneById,
+};

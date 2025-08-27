@@ -2,7 +2,7 @@ const ratelimit = require('express-rate-limit')
 
 
 const limiter = ratelimit({
-    WindowMS : 15 * 60 * 1000,
+    WindowMS : 15 * 60 * 1000, 
     max : 3,
     message: {
     success: false,

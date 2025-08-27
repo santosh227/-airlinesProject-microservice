@@ -19,8 +19,7 @@ async function releaseSeatsToFlightService(flightId, seatsToRelease) {
   try {
     const FLIGHT_SERVICE_URL = process.env.FLIGHT_SERVICE_URL || 'http://localhost:3000';
     
-    console.log(` Releasing ${seatsToRelease} seats for flight ${flightId}`);
-    
+  
     const response = await axios.post(
       `${FLIGHT_SERVICE_URL}/api/v1/flights/${flightId}/releaseSeats`,
       { seatsToRelease },
@@ -31,7 +30,6 @@ async function releaseSeatsToFlightService(flightId, seatsToRelease) {
     );
     
     if (response.data.success) {
-      console.log(` Successfully released ${seatsToRelease} seats`);
       return response.data;
     } else {
       throw new Error('Flight service returned unsuccessful response');
@@ -46,7 +44,6 @@ async function releaseSeatsToFlightService(flightId, seatsToRelease) {
 // Helper function to simulate refund processing
 async function processRefund(booking) {
   try {
-    console.log(` Processing refund for booking ${booking.bookingReference}`);
     
     // Update refund status to processing
     booking.refundStatus = 'processing';
@@ -59,7 +56,6 @@ async function processRefund(booking) {
         if (updatedBooking) {
           updatedBooking.refundStatus = 'completed';
           await updatedBooking.save();
-          console.log(` Refund completed for booking ${updatedBooking.bookingReference}`);
         }
       } catch (error) {
         console.error(' Error completing refund:', error);
@@ -77,9 +73,6 @@ async function processRefund(booking) {
 const createCompleteBooking = async (req, res) => {
   try {
     
-    console.log('=== BOOKING REQUEST DEBUG ===');
-    console.log('Request body:', req.body);
-    console.log('============================');
 
     if (!req.body) {
       return res.status(400).json({
@@ -144,13 +137,11 @@ const createCompleteBooking = async (req, res) => {
     }
 
     const seatsToBook = seats.length;
-    console.log(` Processing booking for ${seatsToBook} seats...`);
 
     //  STEP 2: Generate booking reference
     const bookingReference = await generateUniqueReference('FL', 'DEST', new Date());
 
     //  STEP 3: Initialize booking with 'initialized' status
-    console.log(' Creating initial booking record...');
     
     let booking = new Booking({
       userId: new mongoose.Types.ObjectId(userId),
@@ -174,29 +165,19 @@ const createCompleteBooking = async (req, res) => {
     });
 
     await booking.save();
-    console.log(` Booking ${booking.bookingReference} initialized with ID: ${booking._id}`);
 
     //  STEP 4: Update status to pending_payment and proceed with flight booking
     try {
       booking.updateBookingStatus('pending_payment', 'Proceeding with seat booking and payment processing', 'system');
       await booking.save();
 
-    //  STEP 5: Pre-booking availability check (your existing code)
-      // console.log(' Performing pre-booking availability check...');
-      // const availabilityCheck = await checkAvailabilityBeforeBooking(flightId, seatsToBook);
-      
-      // if (!availabilityCheck.available) {
-      //   throw new Error(`Insufficient seats available: ${availabilityCheck.message}`);
-      // }
-
-      // console.log(' Availability check passed, proceeding with seat booking...');
+ 
 
       // STEP 6: Update status to payment_processing
       booking.updateBookingStatus('payment_processing', 'Availability confirmed, processing seat booking', 'system');
       await booking.save();
 
       //  STEP 7: Call Flight service to book seats (your existing code)
-      console.log(` Calling Flight Service to book ${seatsToBook} seats...`);
       
       const FLIGHT_SERVICE_URL = process.env.FLIGHT_SERVICE_URL || 'http://localhost:3000';
       const bookingResponse = await axios.post(
@@ -225,7 +206,6 @@ const createCompleteBooking = async (req, res) => {
       booking.updateBookingStatus('confirmed', 'Payment processed and seats confirmed', 'system');
       await booking.save();
 
-      console.log(`. Booking ${booking.bookingReference} completed successfully`);
 
       // . STEP 10: Return success response
       res.status(201).json({
@@ -272,7 +252,6 @@ const createCompleteBooking = async (req, res) => {
         booking.cancelledBy = 'system';
         await booking.save();
         
-        console.log(`. Booking ${booking.bookingReference} cancelled due to processing failure`);
       } catch (cancelError) {
         console.error('. Error cancelling failed booking:', cancelError);
       }
@@ -303,7 +282,6 @@ const cancelBooking = async (req, res) => {
     const { bookingId } = req.params;
     const { reason = 'Cancelled by user', cancelledBy = 'user' } = req.body;
     
-    console.log(` Cancellation request for booking: ${bookingId}`);
     
     // Validate booking ID format
     if (!mongoose.Types.ObjectId.isValid(bookingId)) {
@@ -332,14 +310,11 @@ const cancelBooking = async (req, res) => {
       });
     }
     
-    console.log(` Booking ${booking.bookingReference} can be cancelled. Current status: ${booking.status}`);
     
     // Calculate refund amount
     const refundAmount = booking.calculateRefundAmount();
-    console.log(`Calculated refund amount: ₹${refundAmount}`);
     
     // Release seats back to flight service
-    console.log(` Releasing ${booking.seatsBooked} seats back to flight...`);
     const seatReleaseResult = await releaseSeatsToFlightService(booking.flightId, booking.seatsBooked);
     
     if (!seatReleaseResult.success) {
@@ -358,11 +333,9 @@ const cancelBooking = async (req, res) => {
     
     await booking.save();
     
-    console.log(`. Booking ${booking.bookingReference} cancelled successfully`);
     
     // Process refund if applicable
     if (refundAmount > 0) {
-      console.log(` Initiating refund process for ₹${refundAmount}...`);
       await processRefund(booking);
     }
     
@@ -451,9 +424,7 @@ const checkAvailabilityBeforeBooking = async (flightId, requestedSeats) => {
   try {
     const FLIGHT_SERVICE_URL = process.env.FLIGHT_SERVICE_URL || 'http://localhost:3000';
     
-    console.log(` Checking availability for ${requestedSeats} seats on flight ${flightId}`);
-    console.log(` Flight service URL: ${FLIGHT_SERVICE_URL}`);
-    
+  
     const response = await axios.get(
       `${FLIGHT_SERVICE_URL}/api/v1/flights/${flightId}/availability`,
       { 
@@ -462,19 +433,16 @@ const checkAvailabilityBeforeBooking = async (flightId, requestedSeats) => {
       }
     );
     
-    console.log(' Flight service response:', response.data);
     
     if (response.data && response.data.success) {
       const availableSeats = response.data.data?.availability?.availableSeats || 0;
       
       if (availableSeats >= requestedSeats) {
-        console.log(`Availability confirmed: ${availableSeats} seats available, need ${requestedSeats}`);
         return { 
           available: true, 
           data: response.data.data 
         };
       } else {
-        console.log(` Insufficient seats: ${availableSeats} available, need ${requestedSeats}`);
         return { 
           available: false, 
           message: `Only ${availableSeats} seats available, requested ${requestedSeats}`,
@@ -511,7 +479,6 @@ const getFlightAvailability = async (req, res) => {
     const { flightId } = req.params;
     const { seats = 1 } = req.query;
 
-    console.log(`📋 Availability request: Flight ${flightId}, Seats ${seats}`);
 
     // Forward request to Flight Management Service
     const availabilityCheck = await checkAvailabilityBeforeBooking(flightId, seats);
@@ -553,7 +520,6 @@ function generateBookingReference(flightNumber, arrivalCode, bookedDate) {
   // Format: AI786BOM0813A1
   const reference = `${flightNumber}${arrivalCode}${month}${day}${randomSuffix}`;
   
-  console.log(`Generated booking reference: ${reference}`);
   return reference;
 }
 
@@ -684,7 +650,6 @@ const getUserBookings = async (req, res) => {
     // Search for bookings
     const bookings = await Booking.find({ userId: objectId }).sort({ bookedAt: -1 });
     
-    console.log(`Found ${bookings.length} bookings for user ${userId}`);
     
     if (bookings.length === 0) {
       return res.status(200).json({
@@ -760,7 +725,6 @@ const getBookingByReference = async (req, res) => {
       });
     }
 
-    console.log(`Searching for booking with reference: ${cleanRef}`);
     
     const booking = await Booking.findOne({ 
       bookingReference: cleanRef 
@@ -823,7 +787,6 @@ function generateBookingReference(flightNumber, arrivalCode, bookedDate) {
   // Format: AI786BOM0808A1
   const reference = `${flightNumber}${arrivalCode}${month}${day}${randomSuffix}`;
   
-  console.log(`Generated booking reference: ${reference}`);
   return reference;
 }
 

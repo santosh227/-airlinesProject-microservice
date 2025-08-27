@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>✈️ Confirm Flight Booking</title>
+    <title>Confirm Flight Booking</title>
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <style>
         body { 
@@ -137,7 +137,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>✈️ Confirm Your Flight Booking</h1>
+            <h1>Confirm Your Flight Booking</h1>
             <p>Review your booking details and proceed with payment</p>
         </div>
 
@@ -145,7 +145,7 @@
 
         <!-- Loading State -->
         <div id="loading" class="loading">
-            <div>🔄 Loading your booking details...</div>
+            <div>Loading your booking details...</div>
             <div style="font-size: 14px; margin-top: 10px; color: #999;">
                 Fetching data from backend...
             </div>
@@ -156,7 +156,7 @@
             
             <!-- Booking Information Section -->
             <div class="section">
-                <div class="section-title">📋 Booking Information</div>
+                <div class="section-title"> Booking Information</div>
                 <div class="detail-row">
                     <span class="detail-label">Booking Reference:</span>
                     <span class="detail-value" id="booking-reference">-</span>
@@ -177,7 +177,7 @@
 
             <!-- Seat Selection Section -->
             <div class="section">
-                <div class="section-title">💺 Seat Selection</div>
+                <div class="section-title"> Seat Selection</div>
                 <div class="detail-row">
                     <span class="detail-label">Selected Seats:</span>
                     <div id="selected-seats" class="seats">-</div>
@@ -194,7 +194,7 @@
 
             <!-- Payment Information Section -->
             <div class="section">
-                <div class="section-title">💳 Payment Information</div>
+                <div class="section-title"> Payment Information</div>
                 <div class="detail-row">
                     <span class="detail-label">Payment ID:</span>
                     <span class="detail-value" id="payment-id">-</span>
@@ -217,7 +217,7 @@
 
             <!-- Payment Button -->
             <button id="pay-button" class="pay-button" onclick="initiatePayment()">
-                🔄 Loading...
+                 Loading...
             </button>
         </div>
 
@@ -283,8 +283,9 @@
                     throw new Error('Booking ID not found in URL. Please add ?bookingId=YOUR_BOOKING_ID to the URL');
                 }
 
-                console.log('📡 Fetching booking details for ID:', bookingId);
-                showStatus('🔄 Loading booking details from backend...', 'info');
+              
+
+                showStatus(' Loading booking details from backend...', 'info');
 
                 // Call your exact API endpoint
                 const response = await fetch(`${BOOKING_API_URL}/booking/${bookingId}`);
@@ -294,7 +295,7 @@
                 }
 
                 const result = await response.json();
-                console.log('📨 Full API Response:', result);
+             
 
                 // Extract booking data from your API structure
                 if (result.success && result.booking) {
@@ -303,17 +304,17 @@
                     throw new Error('No booking data found in response');
                 }
 
-                console.log('✅ Booking data extracted:', bookingData);
+               
                 
                 renderBookingDetails();
                 showBookingContainer();
                 enablePaymentButton();
                 
-                showStatus('✅ Booking details loaded successfully!', 'success');
+                showStatus(' Booking details loaded successfully!', 'success');
                 
             } catch (error) {
-                console.error('❌ Error loading booking:', error);
-                showStatus(`❌ Error loading booking: ${error.message}`, 'error');
+                console.error(' Error loading booking:', error);
+                showStatus(` Error loading booking: ${error.message}`, 'error');
             }
         }
 
@@ -326,8 +327,7 @@
         // RENDER ONLY ESSENTIAL DATA FROM YOUR API
         // ==========================================
         function renderBookingDetails() {
-            console.log('🎨 Rendering booking details from actual API data');
-
+       
             // Booking Information (Direct from your API)
             document.getElementById('booking-reference').textContent = bookingData.bookingReference || 'N/A';
             document.getElementById('booking-status').textContent = bookingData.status || 'N/A';
@@ -361,7 +361,7 @@
             const payButton = document.getElementById('pay-button');
             const amount = bookingData.calculatedTotal || 0;
             
-            payButton.textContent = `💳 Pay ${formatCurrency(amount)} - Book Now`;
+            payButton.textContent = `Pay ${formatCurrency(amount)} - Book Now`;
             payButton.disabled = false;
         }
 
@@ -370,8 +370,8 @@
         // ==========================================
         async function initiatePayment() {
             try {
-                console.log('💳 Starting payment with booking data');
-                showStatus('🔄 Creating payment order...', 'info');
+              
+                showStatus('Creating payment order...', 'info');
                 
                 const payButton = document.getElementById('pay-button');
                 payButton.disabled = true;
@@ -388,8 +388,7 @@
                     customerPhone: '+919999999999'         // Placeholder since not in API
                 };
 
-                console.log('📤 Sending payment order request:', paymentPayload);
-
+              
                 const orderResponse = await fetch(`${PAYMENT_API_URL}/create-order`, {
                     method: 'POST',
                     headers: {
@@ -399,25 +398,26 @@
                 });
 
                 const orderResult = await orderResponse.json();
-                console.log('📨 Payment order response:', orderResult);
+
+
 
                 if (!orderResult.success) {
                     throw new Error(orderResult.message || 'Failed to create payment order');
                 }
 
                 paymentOrderData = orderResult.data;
-                showStatus('✅ Payment order created! Opening Razorpay...', 'success');
+                showStatus(' Payment order created! Opening Razorpay...', 'success');
 
                 // Launch Razorpay with essential data
                 launchRazorpayCheckout();
 
             } catch (error) {
-                console.error('❌ Payment error:', error);
-                showStatus(`❌ Payment failed: ${error.message}`, 'error');
+                console.error(' Payment error:', error);
+                showStatus(` Payment failed: ${error.message}`, 'error');
                 
                 const payButton = document.getElementById('pay-button');
                 payButton.disabled = false;
-                payButton.textContent = `💳 Pay ${formatCurrency(bookingData.calculatedTotal)} - Book Now`;
+                payButton.textContent = ` Pay ${formatCurrency(bookingData.calculatedTotal)} - Book Now`;
             }
         }
 
@@ -425,7 +425,7 @@
         // RAZORPAY CHECKOUT
         // ==========================================
         function launchRazorpayCheckout() {
-            console.log('🚀 Launching Razorpay checkout');
+           
 
             const options = {
                 key: paymentOrderData.key,
@@ -456,11 +456,11 @@
                 
                 modal: {
                     ondismiss: function() {
-                        console.log('💔 Payment cancelled by user');
+                       
                         const payButton = document.getElementById('pay-button');
                         payButton.disabled = false;
-                        payButton.textContent = `💳 Pay ${formatCurrency(bookingData.calculatedTotal)} - Book Now`;
-                        showStatus('❌ Payment cancelled', 'error');
+                        payButton.textContent = ` Pay ${formatCurrency(bookingData.calculatedTotal)} - Book Now`;
+                        showStatus(' Payment cancelled', 'error');
                     }
                 }
             };
@@ -468,12 +468,12 @@
             const rzp = new Razorpay(options);
             
             rzp.on('payment.failed', function (response) {
-                console.error('💥 Payment failed:', response.error);
-                showStatus(`❌ Payment Failed: ${response.error.description}`, 'error');
+                console.error(' Payment failed:', response.error);
+                showStatus(` Payment Failed: ${response.error.description}`, 'error');
                 
                 const payButton = document.getElementById('pay-button');
                 payButton.disabled = false;
-                payButton.textContent = `💳 Pay ${formatCurrency(bookingData.calculatedTotal)} - Book Now`;
+                payButton.textContent = ` Pay ${formatCurrency(bookingData.calculatedTotal)} - Book Now`;
             });
 
             rzp.open();
@@ -484,8 +484,8 @@
         // ==========================================
         async function handlePaymentSuccess(response) {
             try {
-                console.log('🎉 Payment successful! Verifying...', response);
-                showStatus('🔄 Payment successful! Verifying...', 'info');
+                
+                showStatus(' Payment successful! Verifying...', 'info');
 
                 const verifyPayload = {
                     paymentId: paymentOrderData.paymentId,
@@ -505,7 +505,7 @@
                 const verifyResult = await verifyResponse.json();
 
                 if (verifyResult.success) {
-                    showStatus(`🎉 Booking Confirmed! 
+                    showStatus(` Booking Confirmed! 
                         <br><strong>Payment Successful!</strong>
                         <br>Booking Reference: ${bookingData.bookingReference}
                         <br>Payment ID: ${response.razorpay_payment_id}
@@ -513,7 +513,7 @@
                     
                     const payButton = document.getElementById('pay-button');
                     payButton.style.background = '#48bb78';
-                    payButton.textContent = '✅ Booking Confirmed';
+                    payButton.textContent = ' Booking Confirmed';
                     payButton.disabled = true;
                     
                 } else {
@@ -521,8 +521,8 @@
                 }
 
             } catch (error) {
-                console.error('❌ Verification error:', error);
-                showStatus(`❌ Verification failed: ${error.message}`, 'error');
+                console.error(' Verification error:', error);
+                showStatus(` Verification failed: ${error.message}`, 'error');
             }
         }
 
@@ -530,7 +530,6 @@
         // INITIALIZE ON PAGE LOAD
         // ==========================================
         window.addEventListener('load', function() {
-            console.log('🚀 Page loaded - starting fetch...');
             fetchBookingDetails();
         });
     </script>

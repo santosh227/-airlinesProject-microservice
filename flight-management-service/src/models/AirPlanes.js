@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const airplaneSchema = new mongoose.Schema({
   model: String,
@@ -8,6 +8,6 @@ const airplaneSchema = new mongoose.Schema({
   status: String,
 });
 
-const Airplane = mongoose.model('Airplane', airplaneSchema);
+const Airplane = mongoose.model("Airplane", airplaneSchema);
 
 module.exports = Airplane;

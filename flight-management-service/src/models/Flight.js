@@ -1,4 +1,4 @@
-const mongoose  = require("mongoose");
+const mongoose = require("mongoose");
 
 const flightSchema = new mongoose.Schema(
   {
@@ -15,13 +15,13 @@ const flightSchema = new mongoose.Schema(
       type: String,
       required: true,
       uppercase: true,
-      match: [/^[A-Z]{3}$/]
+      match: [/^[A-Z]{3}$/],
     },
     arrivalAirportId: {
       type: String,
       required: true,
       uppercase: true,
-      match: [/^[A-Z]{3}$/]
+      match: [/^[A-Z]{3}$/],
     },
     arrivalTime: {
       type: Date,
@@ -31,7 +31,7 @@ const flightSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
-    price: { 
+    price: {
       type: Number,
       required: true,
     },
@@ -39,7 +39,7 @@ const flightSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-     totalSeats: { type: Number, required: true },
+    totalSeats: { type: Number, required: true },
     availableSeats: {
       type: Number,
       required: true,
@@ -50,5 +50,5 @@ const flightSchema = new mongoose.Schema(
   }
 );
 
-const Flight = mongoose.model('Flight', flightSchema);
+const Flight = mongoose.model("Flight", flightSchema);
 module.exports = Flight;

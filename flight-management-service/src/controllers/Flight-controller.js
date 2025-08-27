@@ -1,7 +1,7 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 const Flight = require("../models/Flight");
 const Airport = require("../models/Airport");
-const Airplane = require('../models/AirPlanes')
+const Airplane = require("../models/AirPlanes");
 
 // CREATE Flight - sets availableSeats = totalSeats initially
 const createFlight = async (req, res) => {
@@ -29,7 +29,12 @@ const createFlight = async (req, res) => {
       !boardingGate ||
       !totalSeats
     ) {
-      return res.status(400).json({ success: false, message: 'Please provide all required flight details.' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Please provide all required flight details.",
+        });
     }
 
     // Create flight with availableSeats initialized
@@ -69,11 +74,17 @@ const getFlight = async (req, res) => {
     const flight = await Flight.findById(id);
 
     if (!flight) {
-      return res.status(404).json({ success: false, message: 'Flight not found.' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Flight not found." });
     }
 
-    const depAirport = await Airport.findOne({ airportCode: flight.departureAirportId });
-    const arrAirport = await Airport.findOne({ airportCode: flight.arrivalAirportId });
+    const depAirport = await Airport.findOne({
+      airportCode: flight.departureAirportId,
+    });
+    const arrAirport = await Airport.findOne({
+      airportCode: flight.arrivalAirportId,
+    });
     const airplane = await Airplane.findById(flight.airplaneId);
 
     const enrichedFlight = {
@@ -85,22 +96,22 @@ const getFlight = async (req, res) => {
 
     res.status(200).json({ success: true, data: enrichedFlight });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+    res
+      .status(500)
+      .json({ success: false, message: "Server error", error: err.message });
   }
 };
-// Flights availability future 
+// Flights availability future
 const checkFlightAvailability = async (req, res) => {
   try {
     const { flightId } = req.params;
     const { seats = 1 } = req.query;
 
-    console.log(`Checking availability for flight ${flightId}, requested seats: ${seats}`);
-
     // This will now work because mongoose is imported
     if (!mongoose.Types.ObjectId.isValid(flightId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid flight ID format"
+        message: "Invalid flight ID format",
       });
     }
 
@@ -109,16 +120,16 @@ const checkFlightAvailability = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid number of seats requested. Must be between 1 and 50.",
-        received: seats
+        received: seats,
       });
     }
 
     const flight = await Flight.findById(flightId);
-    
+
     if (!flight) {
       return res.status(404).json({
         success: false,
-        message: "Flight not found"
+        message: "Flight not found",
       });
     }
 
@@ -133,26 +144,28 @@ const checkFlightAvailability = async (req, res) => {
         message: "Flight is no longer available for booking",
         reason: "departure_imminent",
         departureTime: flight.departureTime,
-        minutesUntilDeparture: Math.round(minutesUntilDeparture)
+        minutesUntilDeparture: Math.round(minutesUntilDeparture),
       });
     }
 
     const availableSeats = flight.availableSeats;
     const canBook = availableSeats >= requestedSeats;
-    
-    const totalSeats = flight.totalSeats || 180;
-    const occupancyPercentage = Math.round(((totalSeats - availableSeats) / totalSeats) * 100);
 
-    let availabilityStatus = 'available';
+    const totalSeats = flight.totalSeats || 180;
+    const occupancyPercentage = Math.round(
+      ((totalSeats - availableSeats) / totalSeats) * 100
+    );
+
+    let availabilityStatus = "available";
     let urgencyMessage = null;
 
     if (availableSeats === 0) {
-      availabilityStatus = 'sold_out';
+      availabilityStatus = "sold_out";
     } else if (availableSeats <= 5) {
-      availabilityStatus = 'limited';
+      availabilityStatus = "limited";
       urgencyMessage = `Only ${availableSeats} seats remaining!`;
     } else if (availableSeats <= 20) {
-      availabilityStatus = 'filling_fast';
+      availabilityStatus = "filling_fast";
       urgencyMessage = `${availableSeats} seats left. Book soon!`;
     }
 
@@ -166,7 +179,9 @@ const checkFlightAvailability = async (req, res) => {
     res.status(200).json({
       success: true,
       available: canBook,
-      message: canBook ? "Seats available for booking" : "Insufficient seats available",
+      message: canBook
+        ? "Seats available for booking"
+        : "Insufficient seats available",
       availability: {
         flightId: flight._id,
         flightNumber: flight.flightNumber,
@@ -177,13 +192,14 @@ const checkFlightAvailability = async (req, res) => {
         totalSeats: totalSeats,
         canBook: canBook,
         status: availabilityStatus,
-        urgencyMessage: urgencyMessage
+        urgencyMessage: urgencyMessage,
       },
       timing: {
         departureTime: flight.departureTime,
         currentTime: currentTime.toISOString(),
         minutesUntilDeparture: Math.round(minutesUntilDeparture),
-        hoursUntilDeparture: Math.round(minutesUntilDeparture / 60 * 100) / 100
+        hoursUntilDeparture:
+          Math.round((minutesUntilDeparture / 60) * 100) / 100,
       },
       pricing: {
         basePrice: flight.price,
@@ -191,22 +207,32 @@ const checkFlightAvailability = async (req, res) => {
         pricePerSeat: estimatedPrice,
         totalEstimatedCost: estimatedPrice * requestedSeats,
         occupancyPercentage: occupancyPercentage,
-        demandLevel: occupancyPercentage > 80 ? 'high' : occupancyPercentage > 50 ? 'medium' : 'low'
+        demandLevel:
+          occupancyPercentage > 80
+            ? "high"
+            : occupancyPercentage > 50
+            ? "medium"
+            : "low",
       },
       bookingGuidance: {
-        recommendedAction: canBook ? 'proceed_to_book' : 'select_fewer_seats',
-        alternativeOptions: !canBook && availableSeats > 0 ? 
-          `Try booking ${availableSeats} seat${availableSeats === 1 ? '' : 's'} instead` : null,
-        bookingDeadline: `Booking closes ${Math.round(minutesUntilDeparture)} minutes before departure`
-      }
+        recommendedAction: canBook ? "proceed_to_book" : "select_fewer_seats",
+        alternativeOptions:
+          !canBook && availableSeats > 0
+            ? `Try booking ${availableSeats} seat${
+                availableSeats === 1 ? "" : "s"
+              } instead`
+            : null,
+        bookingDeadline: `Booking closes ${Math.round(
+          minutesUntilDeparture
+        )} minutes before departure`,
+      },
     });
-
   } catch (error) {
-    console.error('Flight availability check error:', error);
+    console.error("Flight availability check error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to check flight availability",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -217,7 +243,9 @@ const bookSeats = async (req, res) => {
   const { seatsToBook } = req.body;
 
   if (!Number.isInteger(seatsToBook) || seatsToBook <= 0) {
-    return res.status(400).json({ success: false, message: 'Invalid seatsToBook value' });
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid seatsToBook value" });
   }
 
   try {
@@ -228,22 +256,24 @@ const bookSeats = async (req, res) => {
     );
 
     if (!updatedFlight) {
-      return res.status(400).json({ success: false, message: 'Not enough seats available' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Not enough seats available" });
     }
 
     // Calculate pricing details
     const pricePerSeat = updatedFlight.price;
     const totalCost = pricePerSeat * seatsToBook;
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       flight: updatedFlight,
       bookingDetails: {
         seatsBooked: seatsToBook,
         pricePerSeat: pricePerSeat,
         totalCost: totalCost,
-        message: `Successfully booked ${seatsToBook} seats for ₹${totalCost.toLocaleString()}`
-      }
+        message: `Successfully booked ${seatsToBook} seats for ₹${totalCost.toLocaleString()}`,
+      },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -257,7 +287,9 @@ const getAllFlightsByFilter = async (req, res) => {
 
     // TRIPS (e.g., DEL-MUI)
     if (req.query.trips) {
-      const [departure, arrival] = req.query.trips.split("-").map(s => s.trim().toUpperCase());
+      const [departure, arrival] = req.query.trips
+        .split("-")
+        .map((s) => s.trim().toUpperCase());
       if (departure && arrival) {
         filter.departureAirportId = departure;
         filter.arrivalAirportId = arrival;
@@ -298,14 +330,18 @@ const getAllFlightsByFilter = async (req, res) => {
     // Optimization: fetch all referenced airports & airplanes once
     const airportCodes = new Set();
     const airplaneIds = new Set();
-    flights.forEach(flight => {
+    flights.forEach((flight) => {
       airportCodes.add(flight.departureAirportId);
       airportCodes.add(flight.arrivalAirportId);
       airplaneIds.add(String(flight.airplaneId));
     });
 
-    const airports = await Airport.find({ airportCode: { $in: Array.from(airportCodes) } });
-    const airplanes = await Airplane.find({ _id: { $in: Array.from(airplaneIds) } });
+    const airports = await Airport.find({
+      airportCode: { $in: Array.from(airportCodes) },
+    });
+    const airplanes = await Airplane.find({
+      _id: { $in: Array.from(airplaneIds) },
+    });
 
     // Map for quick lookup
     const airportMap = airports.reduce((acc, curr) => {
@@ -319,7 +355,7 @@ const getAllFlightsByFilter = async (req, res) => {
     }, {});
 
     // Build enriched response
-    const enriched = flights.map(flight => ({
+    const enriched = flights.map((flight) => ({
       ...flight.toObject(),
       departureAirport: airportMap[flight.departureAirportId] || null,
       arrivalAirport: airportMap[flight.arrivalAirportId] || null,
@@ -327,7 +363,6 @@ const getAllFlightsByFilter = async (req, res) => {
     }));
 
     res.status(200).json({ success: true, data: enriched });
-
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -336,72 +371,72 @@ const getAllFlightsByFilter = async (req, res) => {
 /// Booking cancellation
 const releaseSeats = async (req, res) => {
   try {
-    console.log(' Releasing seats - Request received');
     const { flightId } = req.params;
     const { seatsToRelease } = req.body;
-    
+
     // Validation
     if (!seatsToRelease || seatsToRelease <= 0) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid seatsToRelease value. Must be a positive number.'
+        message: "Invalid seatsToRelease value. Must be a positive number.",
       });
     }
-    
+
     if (!mongoose.Types.ObjectId.isValid(flightId)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid flight ID format'
+        message: "Invalid flight ID format",
       });
     }
-    
+
     // Find and update flight
     const flight = await Flight.findById(flightId);
     if (!flight) {
       return res.status(404).json({
         success: false,
-        message: 'Flight not found'
+        message: "Flight not found",
       });
     }
-    
-    console.log(` Flight ${flight.flightNumber}: Current available seats: ${flight.availableSeats}`);
-    
+
     // Release seats (add back to available seats)
     const previousAvailableSeats = flight.availableSeats;
     flight.availableSeats += seatsToRelease;
-    
+
     // Ensure we don't exceed total seats
     if (flight.availableSeats > flight.totalSeats) {
       flight.availableSeats = flight.totalSeats;
     }
-    
+
     await flight.save();
-    
-    console.log(` Seats released: ${seatsToRelease}, New available seats: ${flight.availableSeats}`);
-    
+
     res.status(200).json({
       success: true,
-      message: 'Seats released successfully',
+      message: "Seats released successfully",
       flight: {
         id: flight._id,
         flightNumber: flight.flightNumber,
         availableSeats: flight.availableSeats,
         totalSeats: flight.totalSeats,
         previousAvailableSeats: previousAvailableSeats,
-        seatsReleased: seatsToRelease
-      }
+        seatsReleased: seatsToRelease,
+      },
     });
-    
   } catch (error) {
-    console.error(' Error releasing seats:', error);
+    console.error(" Error releasing seats:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to release seats',
-      error: error.message
+      message: "Failed to release seats",
+      error: error.message,
     });
   }
 };
 
-module.exports = { createFlight, getAllFlights, getFlight,checkFlightAvailability,bookSeats, getAllFlightsByFilter,releaseSeats };
-
-
+module.exports = {
+  createFlight,
+  getAllFlights,
+  getFlight,
+  checkFlightAvailability,
+  bookSeats,
+  getAllFlightsByFilter,
+  releaseSeats,
+};

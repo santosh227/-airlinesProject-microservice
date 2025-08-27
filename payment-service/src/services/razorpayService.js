@@ -9,7 +9,6 @@ class RazorpayService {
       key_secret: process.env.RAZORPAY_SECRET
     });
     
-    console.log(' Razorpay Service initialized with key:', process.env.RAZORPAY_KEY_ID?.substring(0, 12) + '...');
   }
 
   // Create Razorpay Order
@@ -23,15 +22,11 @@ class RazorpayService {
         payment_capture: 1 // Auto capture payment
       };
 
-      console.log(' Creating Razorpay order:', { 
-        amount: options.amount, 
-        currency, 
-        receipt: receiptId 
-      });
+      
       
       const order = await this.razorpay.orders.create(options);
       
-      console.log('Razorpay order created successfully:', order.id);
+   
 
       return {
         success: true,
@@ -63,7 +58,6 @@ class RazorpayService {
       
       const isVerified = expectedSignature === razorpaySignature;
       
-      console.log(isVerified ? ' Payment signature verified' : ' Payment signature verification failed');
       
       return isVerified;
     } catch (error) {
@@ -101,11 +95,10 @@ class RazorpayService {
         refundData.amount = Math.round(amount * 100); // Convert to paise
       }
 
-      console.log(` Creating refund for payment ${paymentId}:`, refundData);
       
       const refund = await this.razorpay.payments.refund(paymentId, refundData);
       
-      console.log('Refund created successfully:', refund.id);
+      
 
       return {
         success: true,

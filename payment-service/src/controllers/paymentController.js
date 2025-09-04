@@ -99,54 +99,82 @@ const createOrder = async (req, res) => {
 // Verify Payment
 const verifyPayment = async (req, res) => {
   try {
+    console.log(" Starting payment verification process...");
+
+    // Extract required parameters from request body
     const {
-      paymentId,
-      razorpay_order_id,
       razorpay_payment_id,
+      razorpay_order_id,
       razorpay_signature,
+      bookingId,
     } = req.body;
 
-    // Validation
+    console.log(" Received verification data:", {
+      razorpay_payment_id,
+      razorpay_order_id,
+      bookingId,
+      has_signature: !!razorpay_signature,
+    });
+
+    // Validate all required parameters are present
     if (
-      !paymentId ||
-      !razorpay_order_id ||
       !razorpay_payment_id ||
-      !razorpay_signature
+      !razorpay_order_id ||
+      !razorpay_signature ||
+      !bookingId
     ) {
+      console.log(" Missing required parameters");
       return res.status(400).json({
         success: false,
         message: "Missing required verification parameters",
       });
     }
 
-    // Find payment record
-    const payment = await Payment.findById(paymentId);
+    // Find payment record by booking ID
+    console.log(` Searching for payment with bookingId: ${bookingId}`);
+    const payment = await Payment.findOne({ bookingId: bookingId });
+
     if (!payment) {
+      console.log(" Payment record not found");
       return res.status(404).json({
         success: false,
-        message: "Payment not found",
+        message: "Payment not found for this booking",
       });
     }
 
-    // SIGNATURE VERIFICATION
+    console.log(" Found payment record:", {
+      paymentId: payment._id,
+      currentStatus: payment.status,
+      amount: payment.amount,
+    });
+
+    // Verify Razorpay signature
     let isSignatureValid = false;
 
     if (razorpay_signature === "test_signature_verification_success") {
+      console.log("Using test signature for verification");
       isSignatureValid = true;
     } else {
       try {
+        console.log(" Verifying Razorpay signature...");
         isSignatureValid = RazorpayService.verifyPaymentSignature(
           razorpay_order_id,
           razorpay_payment_id,
           razorpay_signature
         );
+        console.log(" Signature verification result:", isSignatureValid);
       } catch (error) {
-        console.error("Razorpay signature verification error:", error.message);
+        console.error(" Razorpay signature verification error:", error.message);
         isSignatureValid = false;
       }
     }
 
+    // Handle signature verification failure
     if (!isSignatureValid) {
+      console.log(
+        " Signature verification failed - updating payment as failed"
+      );
+
       payment.status = "failed";
       payment.failedAt = new Date();
       payment.failureReason = "Invalid payment signature";
@@ -156,6 +184,7 @@ const verifyPayment = async (req, res) => {
       payment.paymentMethod = null;
 
       await payment.save();
+      console.log(" Payment status updated to failed");
 
       return res.status(400).json({
         success: false,
@@ -163,17 +192,29 @@ const verifyPayment = async (req, res) => {
       });
     }
 
+    // Determine payment method
     let paymentMethod = "card";
     if (!razorpay_payment_id.startsWith("pay_test_")) {
       try {
+        console.log(" Fetching payment method from Razorpay...");
         const paymentDetailsResult = await RazorpayService.getPaymentDetails(
           razorpay_payment_id
         );
         if (paymentDetailsResult.success) {
           paymentMethod = paymentDetailsResult.payment.method;
+          console.log(" Payment method determined:", paymentMethod);
         }
-      } catch (error) {}
+      } catch (error) {
+        console.log(
+          " Could not fetch payment method, using default:",
+          error.message
+        );
+      }
     }
+
+    // Update payment record with successful verification data
+    console.log(" Updating payment record to completed status...");
+    const previousStatus = payment.status;
 
     payment.status = "completed";
     payment.completedAt = new Date();
@@ -183,41 +224,74 @@ const verifyPayment = async (req, res) => {
     payment.failedAt = null;
     payment.failureReason = null;
 
-    await payment.save();
+    // CRITICAL: Save to database
+    const updatedPayment = await payment.save();
+    console.log(" Payment record updated successfully:", {
+      paymentId: updatedPayment._id,
+      previousStatus,
+      newStatus: updatedPayment.status,
+      completedAt: updatedPayment.completedAt,
+    });
 
+    // Verify the update was successful
+    const verifyUpdate = await Payment.findById(payment._id);
+    console.log(
+      " Database verification - current status:",
+      verifyUpdate.status
+    );
+
+    // Notify booking service about payment completion
     try {
+      console.log(" Notifying booking service...");
       await notifyBookingService(payment.bookingId, "payment_completed", {
         paymentId: payment._id,
         razorpayPaymentId: razorpay_payment_id,
         amount: payment.amount,
       });
+      console.log(" Booking service notified successfully");
     } catch (notifyError) {
-      console.error("Failed to notify booking service:", notifyError);
+      console.error(
+        "⚠️ Failed to notify booking service:",
+        notifyError.message
+      );
+      // Don't fail the payment verification due to notification issues
     }
 
+    // Prepare success response
+    const responseData = {
+      paymentId: payment._id,
+      bookingId: payment.bookingId,
+      bookingReference: payment.bookingReference,
+      razorpayPaymentId: razorpay_payment_id,
+      amount: payment.amount,
+      status: payment.status,
+      paymentMethod: payment.paymentMethod,
+      completedAt: payment.completedAt,
+    };
+
+    console.log(" Payment verification completed successfully:", responseData);
+
+    // Send success response
     res.status(200).json({
       success: true,
       message: "Payment verified successfully",
-      data: {
-        paymentId: payment._id,
-        bookingId: payment.bookingId,
-        bookingReference: payment.bookingReference,
-        razorpayPaymentId: razorpay_payment_id,
-        amount: payment.amount,
-        status: payment.status,
-        paymentMethod: payment.paymentMethod,
-        completedAt: payment.completedAt,
-      },
+      data: responseData,
     });
   } catch (error) {
-    console.error("Verify Payment Error:", error);
+    console.error(" Verify Payment Error:", error);
+
+    // Log stack trace in development
+    if (process.env.NODE_ENV === "development") {
+      console.error("Stack trace:", error.stack);
+    }
+
     res.status(500).json({
       success: false,
       message: "Internal server error during payment verification",
       error:
         process.env.NODE_ENV === "development"
           ? error.message
-          : "Please try again",
+          : "Please try again later",
     });
   }
 };
@@ -226,81 +300,92 @@ const verifyPayment = async (req, res) => {
 const processRefund = async (req, res) => {
   try {
     const { paymentId } = req.params;
-    const {
-      amount,
-      reason = "Customer requested refund",
-      speed = "normal",
-    } = req.body;
+    const { amount, reason = "Customer requested refund", speed = "normal" } = req.body;
 
+    console.log(' Starting refund process for payment:', paymentId);
+    console.log(' Refund details:', { amount, reason, speed });
+
+    // Find payment record
     const payment = await Payment.findById(paymentId);
     if (!payment) {
-      return res.status(404).json({
-        success: false,
-        message: "Payment not found",
-      });
+      console.log(" Payment not found");
+      return res.status(404).json({ success: false, message: "Payment not found" });
     }
+    console.log(' Found payment:', {
+      id: payment._id,
+      status: payment.status,
+      razorpayPaymentId: payment.razorpayPaymentId,
+      amount: payment.amount,
+      existingRefunds: payment.refundAmount || 0
+    });
 
+    // Validate payment eligibility
     if (payment.status !== "completed") {
       return res.status(400).json({
         success: false,
-        message: `Cannot refund payment with status: ${payment.status}. Only completed payments can be refunded.`,
+        message: `Cannot refund payment with status: ${payment.status}. Only completed payments can be refunded.`
       });
     }
 
     if (!payment.razorpayPaymentId) {
-      return res.status(400).json({
-        success: false,
-        message: "No Razorpay payment ID found for this payment",
-      });
+      return res.status(400).json({ success: false, message: "No Razorpay payment ID found" });
     }
 
+    // Calculate and validate refund amount
     const refundAmount = amount || payment.amount;
     if (refundAmount <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Refund amount must be greater than 0",
-      });
+      return res.status(400).json({ success: false, message: "Refund amount must be greater than 0" });
     }
 
     if (refundAmount > payment.amount) {
-      return res.status(400).json({
-        success: false,
-        message: `Refund amount (${refundAmount}) cannot exceed payment amount (${payment.amount})`,
+      return res.status(400).json({ success: false, message: `Refund amount (${refundAmount}) exceeds payment amount (${payment.amount})` });
+    }
+
+    const totalRefunded = payment.refundAmount || 0;
+    if (totalRefunded + refundAmount > payment.amount) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Total refund would exceed payment. Available: ${payment.amount - totalRefunded}` 
       });
     }
 
-    const totalExistingRefunds = payment.refundAmount || 0;
-    if (totalExistingRefunds + refundAmount > payment.amount) {
-      return res.status(400).json({
-        success: false,
-        message: `Total refund amount would exceed payment amount. Available for refund: ${
-          payment.amount - totalExistingRefunds
-        }`,
-      });
-    }
-
+    // Prepare refund notes
     const notes = {
       paymentId: payment._id.toString(),
       bookingReference: payment.bookingReference,
-      reason: reason,
+      reason
     };
 
-    let refundResult;
+    // Process refund (test or real)
+    const isTestPayment = payment.razorpayPaymentId.toLowerCase().includes("test");
+    console.log(' Is test payment:', isTestPayment);
 
-    if (payment.razorpayPaymentId.startsWith("pay_test_")) {
+    let refundResult;
+    if (isTestPayment) {
+      console.log(' Processing test refund');
       refundResult = {
         success: true,
         refundId: `rfnd_test_${Date.now()}`,
         amount: refundAmount,
-        status: "processed",
+        status: "processed"
       };
     } else {
-      refundResult = await RazorpayService.createRefund(
-        payment.razorpayPaymentId,
-        refundAmount,
-        speed,
-        notes
-      );
+      try {
+        console.log(' Processing real refund via Razorpay');
+        refundResult = await RazorpayService.createRefund(
+          payment.razorpayPaymentId,
+          refundAmount,
+          speed,
+          notes
+        );
+      } catch (error) {
+        console.error(' Razorpay refund error:', error);
+        return res.status(400).json({
+          success: false,
+          message: "Razorpay refund failed",
+          error: error.message
+        });
+      }
     }
 
     if (!refundResult.success) {
@@ -308,58 +393,134 @@ const processRefund = async (req, res) => {
         success: false,
         message: "Razorpay refund failed",
         error: refundResult.error,
-        description: refundResult.description,
+        description: refundResult.description
       });
     }
 
-    payment.refundId = refundResult.refundId;
-    payment.refundAmount = (payment.refundAmount || 0) + refundResult.amount;
-    payment.refundStatus = "completed";
-    payment.refundProcessedAt = new Date();
+    console.log(' Refund result:', refundResult);
 
-    if (payment.refundAmount >= payment.amount) {
-      payment.status = "refunded";
-    }
-
-    await payment.save();
+    // Start transaction for consistent updates
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
     try {
-      await notifyBookingService(payment.bookingId, "payment_refunded", {
-        paymentId: payment._id,
-        refundId: refundResult.refundId,
-        refundAmount: refundResult.amount,
-      });
-    } catch (notifyError) {
-      console.error(
-        "Failed to notify booking service about refund:",
-        notifyError
-      );
+      // Update payment record
+      payment.refundId = refundResult.refundId;
+      payment.refundAmount = totalRefunded + refundAmount;
+      payment.refundStatus = "completed";
+      payment.refundProcessedAt = new Date();
+
+      // Mark as fully refunded if applicable
+      if (payment.refundAmount >= payment.amount) {
+        payment.status = "refunded";
+        console.log(' Payment fully refunded');
+      }
+
+      await payment.save({ session });
+      console.log(' Payment record updated');
+
+      // Handle full refund booking cancellation
+      if (payment.refundAmount >= payment.amount) {
+        console.log(' Full refund - cancelling booking and releasing seats');
+
+        // Update booking status
+        const updatedBooking = await Booking.findByIdAndUpdate(
+          payment.bookingId,
+          {
+            status: "cancelled",
+            cancelledAt: new Date(),
+            cancellationReason: reason || "Full payment refunded",
+            refundProcessed: true
+          },
+          { session, new: true }
+        );
+
+        if (!updatedBooking) {
+          throw new Error(`Booking not found: ${payment.bookingId}`);
+        }
+
+        console.log(' Booking cancelled:', {
+          bookingId: updatedBooking._id,
+          status: updatedBooking.status,
+          seats: updatedBooking.seats,
+          cancelledAt: updatedBooking.cancelledAt
+        });
+
+        // Release seats back to flight inventory
+        if (updatedBooking.flightId && updatedBooking.seats && updatedBooking.seats.length > 0) {
+          await Flight.findByIdAndUpdate(
+            updatedBooking.flightId,
+            {
+              $addToSet: { availableSeats: { $each: updatedBooking.seats } },
+              $pull: { reservedSeats: { $in: updatedBooking.seats } },
+              $inc: { totalAvailableSeats: updatedBooking.seats.length }
+            },
+            { session }
+          );
+          
+          console.log(` Released seats: ${updatedBooking.seats.join(', ')} back to flight inventory`);
+        }
+      }
+
+      // Commit transaction
+      await session.commitTransaction();
+      console.log(' Transaction committed successfully');
+
+    } catch (transactionError) {
+      await session.abortTransaction();
+      console.error(' Transaction failed, rolling back:', transactionError);
+      throw transactionError;
+    } finally {
+      await session.endSession();
     }
+
+    // Notify booking service asynchronously (don't block on this)
+    setImmediate(async () => {
+      try {
+        await notifyBookingService(payment.bookingId, "payment_refunded", {
+          paymentId: payment._id,
+          refundId: refundResult.refundId,
+          refundAmount: refundAmount,
+          bookingCancelled: payment.refundAmount >= payment.amount
+        });
+        console.log(' Booking service notified');
+      } catch (notifyError) {
+        console.error(' Failed to notify booking service:', notifyError);
+      }
+    });
+
+    // Prepare success response
+    const responseData = {
+      paymentId: payment._id,
+      bookingId: payment.bookingId,
+      bookingReference: payment.bookingReference,
+      refundId: refundResult.refundId,
+      refundAmount: refundAmount,
+      totalRefunded: payment.refundAmount,
+      remainingAmount: payment.amount - payment.refundAmount,
+      status: refundResult.status,
+      processedAt: payment.refundProcessedAt
+    };
+
+    console.log(' Refund processed successfully:', responseData);
 
     res.status(200).json({
       success: true,
       message: "Refund processed successfully",
-      data: {
-        paymentId: payment._id,
-        bookingId: payment.bookingId,
-        bookingReference: payment.bookingReference,
-        refundId: refundResult.refundId,
-        refundAmount: refundResult.amount,
-        totalRefunded: payment.refundAmount,
-        remainingAmount: payment.amount - payment.refundAmount,
-        status: refundResult.status,
-        processedAt: payment.refundProcessedAt,
-      },
+      data: responseData
     });
+
   } catch (error) {
-    console.error("Process Refund Error:", error);
+    console.error(' Process Refund Error:', error);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Stack trace:', error.stack);
+    }
+
     res.status(500).json({
       success: false,
       message: "Failed to process refund",
-      error:
-        process.env.NODE_ENV === "development"
-          ? error.message
-          : "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : "Internal server error"
     });
   }
 };

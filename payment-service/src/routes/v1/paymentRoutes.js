@@ -21,13 +21,13 @@ const paymentLimiter = rateLimit({
 });
 
 // Payment Routes
-router.post('/create-order', paymentLimiter, createOrder);
-router.post('/verify-payment', paymentLimiter, verifyPayment);
-router.post('/refund/:paymentId', processRefund);
+router.post('/create-order', paymentLimiter, createOrder);  // done 
+router.post('/verify-payment', paymentLimiter, verifyPayment);  // done 
+router.post('/refund/:paymentId',paymentLimiter, processRefund);  
 
 
 /// satatus after success payment 
-router.get('/payment/:paymentId', getPaymentDetails);
+router.get('/payment/:paymentId', getPaymentDetails);    // done 
 
 // Webhook endpoint 
 router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);

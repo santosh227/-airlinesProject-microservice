@@ -2,6 +2,7 @@ const axios = require('axios');
 const Booking = require('../models/Booking');
 const mongoose = require('mongoose');
 
+const { getFlightById, checkFlightAvailability } = require('../services/flightService');
 const FLIGHT_SERVICE_URL = process.env.FLIGHT_SERVICE_URL || 'http://localhost:3000';
 
 
@@ -420,87 +421,241 @@ const getBookingStatusHistory = async (req, res) => {
 
 
 //  HELPER FUNCTION: Check availability before booking (NEW)
-const checkAvailabilityBeforeBooking = async (flightId, requestedSeats) => {
+const checkAvailabilityBeforeBooking = async (flightId, seats, seatClass = 'all') => {
   try {
-    const FLIGHT_SERVICE_URL = process.env.FLIGHT_SERVICE_URL || 'http://localhost:3000';
+    console.log(`Checking availability: flightId=${flightId}, seats=${seats}, class=${seatClass}`);
     
-  
-    const response = await axios.get(
-      `${FLIGHT_SERVICE_URL}/api/v1/flights/${flightId}/availability`,
-      { 
-        timeout: 10000,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    );
-    
-    
-    if (response.data && response.data.success) {
-      const availableSeats = response.data.data?.availability?.availableSeats || 0;
-      
-      if (availableSeats >= requestedSeats) {
-        return { 
-          available: true, 
-          data: response.data.data 
-        };
-      } else {
-        return { 
-          available: false, 
-          message: `Only ${availableSeats} seats available, requested ${requestedSeats}`,
-          data: response.data.data 
-        };
-      }
-    } else {
-      console.error(' Flight service returned unsuccessful response:', response.data);
-      return { 
-        available: false, 
-        message: 'Flight service returned error response',
-        error: response.data?.message || 'Unknown error'
-      };
+    const flight = await Flight.findById(flightId);
+    if (!flight) {
+      return { available: false, error: "Flight not found" };
     }
-  } catch (error) {
-    console.error('. Availability check failed:', {
-      message: error.message,
-      code: error.code,
-      status: error.response?.status,
-      data: error.response?.data
-    });
     
-    return { 
-      available: false, 
-      message: 'Could not verify seat availability',
-      error: error.message 
+    const bookedSeats = await Booking.aggregate([
+      { $match: { flightId: mongoose.Types.ObjectId(flightId), status: { $in: ['confirmed', 'pending'] } } },
+      { $unwind: '$seats' },
+      { $group: { _id: null, count: { $sum: 1 } } }
+    ]);
+    
+    const totalBooked = bookedSeats[0]?.count || 0;
+    const availableCount = flight.totalSeats - totalBooked;
+    
+    return {
+      available: availableCount >= seats,
+      data: {
+        totalSeats: flight.totalSeats,
+        bookedSeats: totalBooked,
+        availableSeats: availableCount,
+        requestedSeats: seats
+      }
     };
+  } catch (error) {
+    console.error('Check availability error:', error);
+    return { available: false, error: error.message };
   }
 };
 
+
 //  STANDALONE AVAILABILITY ENDPOINT
 const getFlightAvailability = async (req, res) => {
+  const startTime = Date.now();
+  
   try {
     const { flightId } = req.params;
-    const { seats = 1 } = req.query;
-
-
-    // Forward request to Flight Management Service
-    const availabilityCheck = await checkAvailabilityBeforeBooking(flightId, seats);
-
-    if (!availabilityCheck.available && availabilityCheck.error) {
+    const { seats = 1, class: seatClass = 'all' } = req.query;
+    
+    // 🔍 DETAILED LOGGING FOR DEBUGGING
+    console.log('=== FLIGHT AVAILABILITY DEBUG ===');
+    console.log('Request flightId:', flightId);
+    console.log('Request seats:', seats, typeof seats);
+    console.log('Request class:', seatClass);
+    
+    const seatCount = parseInt(seats);
+    console.log('Parsed seat count:', seatCount);
+    
+    // Input validation
+    if (!flightId || seatCount < 1 || seatCount > 20) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid parameters",
+        error: "INVALID_INPUT"
+      });
+    }
+    
+    // 🔍 GET FLIGHT DATA FROM FLIGHT SERVICE
+    const flightResult = await getFlightById(flightId);
+    
+    if (!flightResult.success) {
+      console.log('❌ Flight not found or service error');
+      return res.status(404).json({
+        success: false,
+        message: "Flight not found or flight service unavailable",
+        error: "FLIGHT_NOT_FOUND"
+      });
+    }
+    
+    console.log('Flight found:', flightResult.data);
+    
+    // 🔍 CHECK AVAILABILITY VIA FLIGHT SERVICE
+    const availabilityResult = await checkFlightAvailability(flightId, seatCount, seatClass);
+    
+    if (!availabilityResult.success) {
+      console.log('❌ Availability service error');
       return res.status(503).json({
         success: false,
-        message: "Flight service unavailable",
+        message: "Flight availability service unavailable",
         error: "SERVICE_UNAVAILABLE"
       });
     }
-
-    // Return the availability data
-    res.status(200).json(availabilityCheck.data);
-
+    
+    console.log('Availability check result:', availabilityResult);
+    
+    // Return the availability response
+    return res.status(200).json({
+      success: true,
+      message: "Flight availability retrieved successfully",
+      data: {
+        flightId,
+        requestedSeats: seatCount,
+        requestedClass: seatClass,
+        available: availabilityResult.available,
+        flightInfo: flightResult.data,
+        availabilityDetails: availabilityResult.data,
+        timestamp: new Date().toISOString()
+      },
+      responseTime: Date.now() - startTime
+    });
+    
   } catch (error) {
-    console.error('Get flight availability error:', error);
-    res.status(500).json({
+    console.error('💥 Availability check error:', error);
+    return res.status(500).json({
       success: false,
-      message: "Failed to check flight availability",
+      message: "Internal server error while checking availability",
       error: error.message
     });
+  }
+};
+
+
+
+// 🎯 ENHANCED RESPONSE BUILDER
+const buildEnhancedResponse = async (availabilityData, flightId, seatClass, seatCount, detailed) => {
+  const baseResponse = {
+    success: true,
+    message: "Flight availability retrieved successfully",
+    data: {
+      flightId,
+      requestedSeats: seatCount,
+      requestedClass: seatClass,
+      available: availabilityData.available,
+      timestamp: new Date().toISOString()
+    }
+  };
+
+  if (!availabilityData.available) {
+    return {
+      ...baseResponse,
+      data: {
+        ...baseResponse.data,
+        available: false,
+        reason: "Insufficient seats available",
+        suggestions: await getSeatSuggestions(flightId, seatCount)
+      }
+    };
+  }
+
+  // Build detailed availability info
+  const availabilityInfo = {
+    ...baseResponse.data,
+    seatsAvailable: availabilityData.availableSeats || [],
+    totalAvailable: availabilityData.totalAvailable || 0,
+    priceInfo: availabilityData.pricing || null
+  };
+
+  if (detailed) {
+    // Add detailed seat map and flight info
+    availabilityInfo.seatMap = availabilityData.seatMap || null;
+    availabilityInfo.flightInfo = await getFlightDetails(flightId);
+    availabilityInfo.classBreakdown = availabilityData.classBreakdown || null;
+  }
+
+  if (seatClass !== 'all') {
+    availabilityInfo.classSpecific = {
+      class: seatClass,
+      available: availabilityData.classAvailable?.[seatClass] || 0,
+      occupied: availabilityData.classOccupied?.[seatClass] || 0
+    };
+  }
+
+  return {
+    ...baseResponse,
+    data: availabilityInfo
+  };
+};
+
+// 💡 SEAT SUGGESTIONS (when seats not available)
+const getSeatSuggestions = async (flightId, requestedSeats) => {
+  try {
+    const suggestions = [];
+    
+    // Suggest fewer seats if available
+    if (requestedSeats > 1) {
+      for (let seats = requestedSeats - 1; seats > 0; seats--) {
+        const check = await checkAvailabilityBeforeBooking(flightId, seats);
+        if (check.available) {
+          suggestions.push({
+            seats,
+            class: 'economy',
+            message: `${seats} seat(s) available in economy`
+          });
+          break;
+        }
+      }
+    }
+
+    // Suggest different classes
+    const classes = ['business', 'first'];
+    for (const cls of classes) {
+      try {
+        const check = await checkAvailabilityBeforeBooking(flightId, requestedSeats, cls);
+        if (check.available) {
+          suggestions.push({
+            seats: requestedSeats,
+            class: cls,
+            message: `${requestedSeats} seat(s) available in ${cls} class`
+          });
+        }
+      } catch (error) {
+        // Skip this class if check fails
+        continue;
+      }
+    }
+
+    return suggestions.slice(0, 3); // Max 3 suggestions
+  } catch (error) {
+    console.warn('Could not generate seat suggestions:', error.message);
+    return [];
+  }
+};
+
+// 🔍 HELPER FUNCTIONS
+const isValidObjectId = (id) => {
+  return /^[0-9a-fA-F]{24}$/.test(id);
+};
+
+const getFlightDetails = async (flightId) => {
+  try {
+    // Call your flight service to get basic flight info
+    return {
+      flightNumber: "AI786",
+      route: "DEL → BOM", 
+      departure: "08:30",
+      arrival: "10:45",
+      aircraft: "Boeing 737-800",
+      duration: "2h 15m"
+    };
+  } catch (error) {
+    console.warn('Could not fetch flight details:', error.message);
+    return null;
   }
 };
 

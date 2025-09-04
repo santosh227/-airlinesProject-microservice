@@ -18,17 +18,17 @@ const limiter = require('../../common/rate-limit');
 const idempotency = require('../../middlewares/idempotency');
 
 
-router.post('/book', idempotency, createCompleteBooking);
-router.get('/booking/:bookingId', getBookingById);
-router.get('/user/:userId', getUserBookings);
-router.get('/reference/:bookingRef', getBookingByReference);
-router.get('/flights/:flightId/availability', getFlightAvailability);
+router.post('/book', idempotency, createCompleteBooking);  // done 
+router.get('/booking/:bookingId', getBookingById);        
+router.get('/user/:userId', getUserBookings);             // done 
+router.get('/reference/:bookingRef', getBookingByReference); 
+router.get('/flights/:flightId/availability', getFlightAvailability);  // done 
 
 
-router.patch('/booking/:bookingId/cancel', limiter, idempotency, cancelBooking);
-router.get('/booking/:bookingId/status-history', getBookingStatusHistory);
+router.patch('/booking/:bookingId/cancel', limiter, idempotency, cancelBooking);  // done 
+router.get('/booking/:bookingId/status-history', getBookingStatusHistory);    // done 
 
-// Quick status check endpoint
+// Quick status check endpoint                                               //done 
 router.get('/booking/:bookingId/status', async (req, res) => {
   try {
     const { bookingId } = req.params;  

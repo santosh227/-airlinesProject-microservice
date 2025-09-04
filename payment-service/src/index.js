@@ -31,8 +31,8 @@ app.use('/api', apiRoutes);
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('🗄️ Connected to MongoDB'))
-  .catch(err => console.error('❌ MongoDB connection error:', err));
+  .then(() => console.log(' Connected to MongoDB'))
+  .catch(err => console.error(' MongoDB connection error:', err));
 
 
 
@@ -54,8 +54,8 @@ app.use('*', (req, res) => {
 });
 // DB connection listen 
 app.listen(PORT, () => {
-  console.log(`💳 Payment Service running on port ${PORT}`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`📧 Webhook URL: http://localhost:${PORT}/api/v1/payments/webhook`);
+  console.log(` Payment Service running on port ${PORT}`);
+  console.log(` Environment: ${process.env.NODE_ENV}`);
+  console.log(` Health check: http://localhost:${PORT}/health`);
+  console.log(` Webhook URL: http://localhost:${PORT}/api/v1/payments/webhook`);
 });

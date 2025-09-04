@@ -229,7 +229,7 @@
         // ==========================================
         // CONFIGURATION
         // ==========================================
-        const PAYMENT_API_URL = 'http://localhost:5000/api/v1';
+        const PAYMENT_API_URL = 'http://localhost:5000/api/v1/payments';
         const BOOKING_API_URL = 'http://localhost:4000/api/v1/bookings';
 
         // ==========================================
@@ -482,49 +482,79 @@
         // ==========================================
         // PAYMENT SUCCESS HANDLING
         // ==========================================
-        async function handlePaymentSuccess(response) {
-            try {
-                
-                showStatus(' Payment successful! Verifying...', 'info');
-
-                const verifyPayload = {
-                    paymentId: paymentOrderData.paymentId,
-                    razorpay_order_id: response.razorpay_order_id,
-                    razorpay_payment_id: response.razorpay_payment_id,
-                    razorpay_signature: response.razorpay_signature
-                };
-
-                const verifyResponse = await fetch(`${PAYMENT_API_URL}/verify-payment`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(verifyPayload)
-                });
-
-                const verifyResult = await verifyResponse.json();
-
-                if (verifyResult.success) {
-                    showStatus(` Booking Confirmed! 
-                        <br><strong>Payment Successful!</strong>
-                        <br>Booking Reference: ${bookingData.bookingReference}
-                        <br>Payment ID: ${response.razorpay_payment_id}
-                        <br>Amount: ${formatCurrency(bookingData.calculatedTotal)}`, 'success');
-                    
-                    const payButton = document.getElementById('pay-button');
-                    payButton.style.background = '#48bb78';
-                    payButton.textContent = ' Booking Confirmed';
-                    payButton.disabled = true;
-                    
-                } else {
-                    throw new Error(verifyResult.message || 'Payment verification failed');
-                }
-
-            } catch (error) {
-                console.error(' Verification error:', error);
-                showStatus(` Verification failed: ${error.message}`, 'error');
-            }
+       // After successful Razorpay payment
+const handlePaymentSuccess = async (paymentResponse) => {
+  try {
+    // Step 1: Verify payment
+    const verificationResult = await verifyPayment(paymentResponse);
+    
+    if (verificationResult.success) {
+      // Step 2: Fetch updated booking details from /book endpoint
+      const bookingResponse = await fetch(
+        `/api/v1/bookings/booking/${bookingId}`, 
+        {
+          headers: {
+            'Authorization': `Bearer ${userToken}`,
+            'Content-Type': 'application/json'
+          }
         }
+      );
+      
+      const bookingDetails = await bookingResponse.json();
+      
+      // Step 3: Display booking confirmation with complete details
+      if (bookingDetails.success) {
+        displayBookingConfirmation({
+          booking: bookingDetails.data,
+          payment: verificationResult.data,
+          message: "Payment successful! Your booking is confirmed."
+        });
+        
+        // Redirect to confirmation page with all details
+        window.location.href = `/booking-confirmation/${bookingId}`;
+      }
+    }
+  } catch (error) {
+    showErrorMessage('Payment verification failed. Please contact support.');
+  }
+};
+
+// Display comprehensive booking confirmation
+const displayBookingConfirmation = ({ booking, payment, message }) => {
+  const confirmationHTML = `
+    <div class="booking-confirmation">
+      <h2>✅ ${message}</h2>
+      
+      <div class="booking-details">
+        <h3>Booking Details</h3>
+        <p><strong>Reference:</strong> ${booking.bookingReference}</p>
+        <p><strong>Status:</strong> ${booking.status}</p>
+        <p><strong>Seats:</strong> ${booking.seats.join(', ')}</p>
+        <p><strong>Total Cost:</strong> ₹${booking.totalCost}</p>
+      </div>
+      
+      <div class="payment-details">
+        <h3>Payment Details</h3>
+        <p><strong>Payment ID:</strong> ${payment.paymentId}</p>
+        <p><strong>Amount:</strong> ₹${payment.amount}</p>
+        <p><strong>Status:</strong> ${payment.status}</p>
+      </div>
+      
+      <div class="passenger-details">
+        <h3>Passenger Information</h3>
+        ${booking.passengerDetails.map(passenger => `
+          <div class="passenger">
+            <p><strong>${passenger.firstName} ${passenger.lastName}</strong></p>
+            <p>Seat: ${passenger.seatNumber} | Age: ${passenger.age}</p>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  
+  document.getElementById('confirmation-section').innerHTML = confirmationHTML;
+};
+
 
         // ==========================================
         // INITIALIZE ON PAGE LOAD

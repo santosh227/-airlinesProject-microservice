@@ -16,16 +16,19 @@ const {
 
 const limiter = require('../../common/rate-limit');
 const idempotency = require('../../middlewares/idempotency');
+const {validateBookingRequest} = require('../../middlewares/validateBookingRequest')
+const {authenticateToken}  = require('../../middlewares/auth-middleware')
 
+router.use(authenticateToken)
 
-router.post('/book', idempotency, createCompleteBooking);  // done 
-router.get('/booking/:bookingId', getBookingById);        
+router.post('/book', idempotency,validateBookingRequest,createCompleteBooking);  // done 
+router.get('/booking/:bookingId',getBookingById);        
 router.get('/user/:userId', getUserBookings);             // done 
 router.get('/reference/:bookingRef', getBookingByReference); 
 router.get('/flights/:flightId/availability', getFlightAvailability);  // done 
 
 
-router.patch('/booking/:bookingId/cancel', limiter, idempotency, cancelBooking);  // done 
+router.patch('/booking/:bookingId/cancel', authenticateToken,limiter, idempotency, cancelBooking);  // done 
 router.get('/booking/:bookingId/status-history', getBookingStatusHistory);    // done 
 
 // Quick status check endpoint                                               //done 

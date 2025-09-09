@@ -14,24 +14,25 @@ const {
 const flightMiddleware = require("../../middlewares/flightMiddleware");
 
 // Query flights by departure and arrival airport IDs
-router.get(
-  "/trips/:departureAirportId-:arrivalAirportId",
-  getAllFlightsByFilter
-);
+router.get("/trips/:departureAirportId-:arrivalAirportId",authenticateUser,getAllFlightsByFilter);  // DONE 
 
 // Create a new flight with validation middleware
-router.post("/", flightMiddleware, createFlight);
+router.post("/", flightMiddleware, createFlight);  //done 
 
 // Get all flights
-router.get("/", authenticateUser, getAllFlights);
+router.get("/", authenticateUser, getAllFlights);   // done 
 
 // Get flight by ID
-router.get("/:id", authenticateUser, getFlight);
+router.get("/:id", authenticateUser, getFlight);   // done 
 
-router.post("/:flightId/bookSeats", bookSeats);
+router.post("/:flightId/bookSeats", bookSeats);   //done 
 
-router.get("/:flightId/availability", checkFlightAvailability);
+router.post("/:flightId/releaseSeats", releaseSeats); //done 
 
-router.post("/:flightId/releaseSeats", releaseSeats);
+router.get("/:id", authenticateUser, getFlight);   // done 
+
+router.get("/:flightId/availability",authenticateUser, checkFlightAvailability);   // done 
+
+
 
 module.exports = router;

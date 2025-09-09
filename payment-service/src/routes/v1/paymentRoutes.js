@@ -9,28 +9,31 @@ const {
   getPaymentDetails,
   handleWebhook
 } = require('../../controllers/paymentController');
+const authenticateToken = require('../../middlewares/auth-middleware')
 
 // Rate limiting for payment endpoints
 const paymentLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50, // Limit each IP to 50 requests per windowMs
+  max: 10, // Limit each IP to 50 requests per windowMs
   message: {
     success: false,
     message: 'Too many payment requests, please try again later.'
   }
 });
 
+router.use(authenticateToken)
 // Payment Routes
 router.post('/create-order', paymentLimiter, createOrder);  // done 
 router.post('/verify-payment', paymentLimiter, verifyPayment);  // done 
-router.post('/refund/:paymentId',paymentLimiter, processRefund);  
+router.post('/refund/:paymentId',paymentLimiter, processRefund);  // done 
 
 
 /// satatus after success payment 
 router.get('/payment/:paymentId', getPaymentDetails);    // done 
 
 // Webhook endpoint 
-router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);
+router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);  // done 
+router.use(express.json());
 
 // Health check for payment service
 router.get('/health', (req, res) => {

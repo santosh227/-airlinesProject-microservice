@@ -1,6 +1,6 @@
 const express = require("express");
 const {
-  createcitySchema,
+  createCity,
   getAllCities,
   getcitySchemaById,
   updatecitySchema,
@@ -10,7 +10,7 @@ const {
 const router = express.Router();
 
 // Create a new airplane
-router.post("/", createcitySchema);
+router.post("/", createCity);
 
 // Get all airplanes
 router.get("/", getAllCities);

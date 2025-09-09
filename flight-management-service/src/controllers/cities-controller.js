@@ -1,18 +1,41 @@
-const citySchema = require("../models/AirplaneCities");
+const citySchema = require('../models/AirplaneCities')
 
 // CREATE a new citySchema
-const createcitySchema = async (req, res) => {
+const createCity = async (req, res) => {
   try {
     const newCity = await citySchema.create(req.body);
-
-    res.status(201).json({ success: true, data: newCity });
+    res.status(201).json({ 
+      success: true, 
+      data: newCity 
+    });
   } catch (error) {
-    res.status(409).json({
+    // Handle MongoDB duplicate key error (code 11000)
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "City with this name already exists. City names must be unique.",
+        field: Object.keys(error.keyPattern)[0] // Shows which field caused the duplicate
+      });
+    }
+
+    // Handle Mongoose validation errors
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
+
+    // Handle other errors
+    res.status(500).json({
       success: false,
-      message: "dublicate city names  cannot be taken ",
+      message: "Internal server error while creating city",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
+
 
 // READ - Get all cities
 const getAllCities = async (req, res) => {
@@ -27,13 +50,13 @@ const getAllCities = async (req, res) => {
 // READ - Get citySchema by ID
 const getcitySchemaById = async (req, res) => {
   try {
-    const citySchema = await citySchema.findById(req.params.id);
-    if (!citySchema) {
+    const cityById = await citySchema.findById(req.params.id);
+    if (!cityById) {
       return res
         .status(404)
-        .json({ success: false, message: "citySchema not found" });
+        .json({ success: false, message: "city  not found" });
     }
-    res.status(200).json({ success: true, data: citySchema });
+    res.status(200).json({ success: true, data: cityById });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -53,9 +76,9 @@ const updatecitySchema = async (req, res) => {
     if (!UpdateCity) {
       return res
         .status(404)
-        .json({ success: false, message: "citySchema not found" });
+        .json({ success: false, message: "city not found" });
     }
-    res.status(200).json({ success: true, data: UpdateCity });
+    res.status(200).json({ success: "City Details Updated Successfully", data: UpdateCity });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -72,14 +95,14 @@ const deletecitySchema = async (req, res) => {
     }
     res
       .status(200)
-      .json({ success: true, message: "citySchema deleted successfully" });
+      .json({ success: true, message: "city  deleted successfully" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
 module.exports = {
-  createcitySchema,
+  createCity,
   getAllCities,
   getcitySchemaById,
   updatecitySchema,

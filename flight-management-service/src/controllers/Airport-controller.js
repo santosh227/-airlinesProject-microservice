@@ -52,7 +52,7 @@ exports.updateAirport = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Airport not found" });
     }
-    res.status(200).json({ success: true, data: airport });
+    res.status(200).json({ success: "Airport Details updated successfully ", data: airport });
   } catch (error) {
     if (error.code === 11000) {
       return res

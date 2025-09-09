@@ -13,7 +13,8 @@ const PORT = process.env.PORT || 5004;
 app.use(helmet());
 app.use(cors());
 //Handle webhook endpoint with RAW body BEFORE other body parsing
-app.use('/api/v1/webhook', express.raw({ type: 'application/json' }));
+// app.use('/api/v1/webhook', express.raw({ type: 'application/json' }));
+app.use('/api/v1/payments/webhook', express.raw({ type: 'application/json' }));
 
 
 // Body parsing middleware

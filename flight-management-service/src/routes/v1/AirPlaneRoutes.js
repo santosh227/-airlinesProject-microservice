@@ -19,7 +19,7 @@ router.get("/", getAirplane);
 router.get("/:id", getAirplaneById);
 
 // Update airplane by ID
-router.put("/:id", updateAirplaneById);
+router.patch("/:id", updateAirplaneById);
 
 // Delete airplane by ID
 router.delete("/:id", deleteAirplaneById);

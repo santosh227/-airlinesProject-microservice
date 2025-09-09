@@ -96,7 +96,7 @@ const paymentSchema = new mongoose.Schema({
 });
 
 // Indexes for Performance
-paymentSchema.index({ bookingId: 1 });
+// paymentSchema.index({ bookingId: 1 });
 paymentSchema.index({ razorpayOrderId: 1 });
 paymentSchema.index({ razorpayPaymentId: 1 });
 paymentSchema.index({ status: 1 });

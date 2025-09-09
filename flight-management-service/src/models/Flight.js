@@ -49,6 +49,15 @@ const flightSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+// compound index for better performance
+flightSchema.index({ 
+  departureAirportId: 1, 
+  arrivalAirportId: 1, 
+  departureTime: 1,
+  price: 1,
+  availableSeats: 1 
+});
+
 
 const Flight = mongoose.model("Flight", flightSchema);
 module.exports = Flight;

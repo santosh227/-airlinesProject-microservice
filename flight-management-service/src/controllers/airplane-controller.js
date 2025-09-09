@@ -12,6 +12,9 @@ const createAirplane = async (req, res) => {
       status,
     });
     const savedAirplane = await newAirplane.save();
+    if(!model | !manufacturer){
+      res.status(400).json({success : "every field is required"})
+    }
 
     res.status(201).json({
       success: true,

@@ -23,6 +23,7 @@ const airportSchema = new mongoose.Schema({
     required: true,
   },
 });
+airportSchema.index({ airportCode: 1 });
 
 const Airport = mongoose.model("Airport", airportSchema);
 module.exports = Airport;

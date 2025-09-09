@@ -138,7 +138,7 @@ const checkFlightAvailability = async (req, res) => {
     const minutesUntilDeparture = (departureTime - currentTime) / (1000 * 60);
 
     if (minutesUntilDeparture < 30) {
-      return res.status(400).json({
+      return res.status(409).json({
         success: false,
         available: false,
         message: "Flight is no longer available for booking",
@@ -257,7 +257,7 @@ const bookSeats = async (req, res) => {
 
     if (!updatedFlight) {
       return res
-        .status(400)
+        .status(409)
         .json({ success: false, message: "Not enough seats available" });
     }
 
@@ -280,93 +280,134 @@ const bookSeats = async (req, res) => {
   }
 };
 
-// Get flights by filters with enrichment
 const getAllFlightsByFilter = async (req, res) => {
   try {
-    const filter = {};
+    const { departureAirportId, arrivalAirportId } = req.params;
+    const { trips, priceBetween, travellers, departureTime } = req.query;
 
-    // TRIPS (e.g., DEL-MUI)
-    if (req.query.trips) {
-      const [departure, arrival] = req.query.trips
-        .split("-")
-        .map((s) => s.trim().toUpperCase());
-      if (departure && arrival) {
-        filter.departureAirportId = departure;
-        filter.arrivalAirportId = arrival;
-      }
+    // Determine airport codes
+    let depCode = departureAirportId?.toUpperCase();
+    let arrCode = arrivalAirportId?.toUpperCase();
+
+    if (trips) {
+      const [dep, arr] = trips.split('-').map(s => s.trim().toUpperCase());
+      depCode = dep || depCode;
+      arrCode = arr || arrCode;
     }
 
-    if (req.query.departureAirportId) {
-      filter.departureAirportId = req.query.departureAirportId.toUpperCase();
-    }
-    if (req.query.arrivalAirportId) {
-      filter.arrivalAirportId = req.query.arrivalAirportId.toUpperCase();
+    if (req.query.departureAirportId) depCode = req.query.departureAirportId.toUpperCase();
+    if (req.query.arrivalAirportId) arrCode = req.query.arrivalAirportId.toUpperCase();
+
+    if (!depCode || !arrCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Both departure and arrival airport codes are required'
+      });
     }
 
-    // PRICE RANGE
-    if (req.query.priceBetween) {
-      const [min, max] = req.query.priceBetween.split("-").map(Number);
+    // Build match conditions
+    const matchConditions = {
+      departureAirportId: depCode,
+      arrivalAirportId: arrCode
+    };
+
+    // Add filters
+    if (priceBetween) {
+      const [min, max] = priceBetween.split('-').map(Number);
       if (!isNaN(min)) {
-        filter.price = { $gte: min };
-        if (!isNaN(max)) filter.price.$lte = max;
+        matchConditions.price = { $gte: min };
+        if (!isNaN(max)) matchConditions.price.$lte = max;
       }
     }
 
-    // TRAVELLERS filter using availableSeats instead of totalSeats to show truly available
-    if (req.query.travellers) {
-      filter.availableSeats = { $gte: Number(req.query.travellers) };
+    if (travellers) {
+      const count = Number(travellers);
+      if (!isNaN(count) && count > 0) {
+        matchConditions.availableSeats = { $gte: count };
+      }
     }
 
-    // DEPARTURE DATE FILTER
-    if (req.query.departureTime) {
-      const date = req.query.departureTime;
-      const start = new Date(`${date}T00:00:00.000Z`);
-      const end = new Date(`${date}T23:59:59.999Z`);
-      filter.departureTime = { $gte: start, $lte: end };
+    if (departureTime) {
+      const start = new Date(`${departureTime}T00:00:00.000Z`);
+      const end = new Date(`${departureTime}T23:59:59.999Z`);
+      matchConditions.departureTime = { $gte: start, $lte: end };
     }
 
-    const flights = await Flight.find(filter);
+    const pipeline = [
+      { $match: matchConditions },
+      
+      // Single lookup for departure airport
+      {
+        $lookup: {
+          from: 'airports', 
+          localField: 'departureAirportId', 
+          foreignField: 'airportCode',
+          as: 'departureAirport'
+        }
+      },
+      { $unwind: { path: '$departureAirport', preserveNullAndEmptyArrays: true } },
+      
+      // Single lookup for arrival airport
+      {
+        $lookup: {
+          from: 'airports', 
+          localField: 'arrivalAirportId',
+          foreignField: 'airportCode',
+          as: 'arrivalAirport'
+        }
+      },
+      { $unwind: { path: '$arrivalAirport', preserveNullAndEmptyArrays: true } },
+      
+      // Single lookup for airplane
+      {
+        $lookup: {
+          from: 'airplanes', 
+          localField: 'airplaneId',
+          foreignField: '_id',
+          as: 'airplane'
+        }
+      },
+      { $unwind: { path: '$airplane', preserveNullAndEmptyArrays: true } },
+      
+      // Sort by departure time
+      { $sort: { departureTime: 1 } }
+    ];
 
-    // Optimization: fetch all referenced airports & airplanes once
-    const airportCodes = new Set();
-    const airplaneIds = new Set();
-    flights.forEach((flight) => {
-      airportCodes.add(flight.departureAirportId);
-      airportCodes.add(flight.arrivalAirportId);
-      airplaneIds.add(String(flight.airplaneId));
+    const flights = await Flight.aggregate(pipeline);
+    
+    console.log(` Found ${flights.length} flights`);
+
+    //   Handle empty results with clear message
+    if (flights.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "No flights available/active for your search",
+        data: [],
+        searchCriteria: {
+          route: `${depCode} → ${arrCode}`,
+          ...(priceBetween && { priceRange: priceBetween }),
+          ...(travellers && { travellers: Number(travellers) }),
+          ...(departureTime && { departureDate: departureTime })
+        }
+      });
+    }
+
+    // Return successful results
+    res.status(200).json({
+      success: true,
+      data: flights,
+      count: flights.length
     });
 
-    const airports = await Airport.find({
-      airportCode: { $in: Array.from(airportCodes) },
-    });
-    const airplanes = await Airplane.find({
-      _id: { $in: Array.from(airplaneIds) },
-    });
-
-    // Map for quick lookup
-    const airportMap = airports.reduce((acc, curr) => {
-      acc[curr.airportCode] = curr;
-      return acc;
-    }, {});
-
-    const airplaneMap = airplanes.reduce((acc, curr) => {
-      acc[curr._id] = curr;
-      return acc;
-    }, {});
-
-    // Build enriched response
-    const enriched = flights.map((flight) => ({
-      ...flight.toObject(),
-      departureAirport: airportMap[flight.departureAirportId] || null,
-      arrivalAirport: airportMap[flight.arrivalAirportId] || null,
-      airplane: airplaneMap[flight.airplaneId] || null,
-    }));
-
-    res.status(200).json({ success: true, data: enriched });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
+    console.error('🚨 Aggregation Error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  } 
 };
+
 
 /// Booking cancellation
 const releaseSeats = async (req, res) => {

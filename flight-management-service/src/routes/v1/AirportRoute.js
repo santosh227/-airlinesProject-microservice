@@ -11,10 +11,10 @@ const {
 
 const Airport_middleware = require("../../middlewares/Airport_middleware");
 
-router.post("/", Airport_middleware, createAirport);
+router.post("/", Airport_middleware, createAirport); 
 router.get("/", getAllAirports);
 router.get("/:id", getAirportById);
-router.put("/:id", updateAirport);
+router.patch("/:id", updateAirport);
 router.delete("/:id", deleteAirport);
 
 module.exports = router;

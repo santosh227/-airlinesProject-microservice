@@ -1,0 +1,103 @@
+
+# version: '3.8'
+
+services:
+  # Authentication Service
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - NODE_ENV=development
+      - PORT=5001
+      - JWT_SECRET=34fjjfjgjdww235304503vdkeow5it322
+      - MONGO_URI=mongodb://mongo:27017/airlinesDB
+    depends_on:
+      - mongo
+    networks:
+      - airline-network
+    restart: unless-stopped
+
+  # Flight Management Service  
+  flight-service:
+    build:
+      context: ./flight-management-service
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - MONGO_URI=mongodb://mongo:27017/airlinesDB
+      - JWT_SECRET=34fjjfjgjdww235304503vdkeow5it322
+    depends_on:
+      - mongo
+    networks:
+      - airline-network
+    restart: unless-stopped
+
+  # Booking Service
+  booking-service:
+    build:
+      context: ./flight-booking-service
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+      - MONGO_URI=mongodb://mongo:27017/airlinesDB
+      - AUTH_SERVICE_URL=http://auth-service:5001
+      - FLIGHT_SERVICE_URL=http://flight-service:3000
+    depends_on:
+      - mongo
+      - auth-service
+      - flight-service
+    networks:
+      - airline-network
+    restart: unless-stopped
+
+  # Payment Service
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=development
+      - PORT=5000
+      - MONGO_URI=mongodb://mongo:27017/airlinesDB
+      - RAZORPAY_KEY_ID=rzp_test_RDPfV7PchW3O9m
+      - RAZORPAY_SECRET=jXPTA7feHkYkxdtC8XrWDJhd
+      - BOOKING_SERVICE_URL=http://booking-service:4000
+    depends_on:
+      - mongo
+      - booking-service
+    networks:
+      - airline-network
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:6.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=airlinesDB
+    networks:
+      - airline-network
+    restart: unless-stopped
+
+# Networks section (at root level)
+networks:
+  airline-network:
+    driver: bridge
+
+# Volumes section (at root level)
+volumes:
+  mongo-data:
+    driver: local

@@ -18,4 +18,13 @@ router.use('/cities',AirplaneCitiesRoute )  // all cities realated endpoints    
 router.use('/airports',AirportRoute)         // all airports releated endpoints 
 router.use('/flights',FlightRoute )          // all flights releated to endpoint 
 
+router.get('/health',(req,res)=>{
+    res.status(200).json({
+        success: true,
+        message : "flight management service is working perfectly",
+         status: 'healthy',
+    timestamp: new Date(),
+    uptime: process.uptime()
+    })
+})
 module.exports = router;

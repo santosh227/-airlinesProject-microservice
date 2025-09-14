@@ -24,6 +24,15 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use('/api', apiRoutes);
 
+app.get('/paymentService/health',(req,res)=>{
+    res.status(200).json({
+        success: true,
+        message : "payment  service is working perfectly",
+         status: 'healthy',
+        timestamp: new Date(),
+        uptime: process.uptime()
+    })
+})
 
 
 

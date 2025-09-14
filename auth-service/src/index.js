@@ -20,12 +20,13 @@ app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes); // optional
 
 // Health check
-app.get('/api/auth/health', (req, res) => {
+app.get('/authService/health', (req, res) => {
   res.json({
     success: true,
     status: 'healthy',
     timestamp: new Date(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    message : "Auth Service is Running Successfully"
   });
 });
 

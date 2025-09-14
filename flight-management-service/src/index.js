@@ -11,6 +11,17 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", apiRoutes); // Main API prefix
 
+
+app.get('/flightService/health',(req,res)=>{
+    res.status(200).json({
+        success: true,
+        message : "flight management service is working perfectly",
+         status: 'healthy',
+    timestamp: new Date(),
+    uptime: process.uptime()
+    })
+})
+
 connectToMongo(); // Connect to MongoDB
 
 app.listen(PORT, () => {

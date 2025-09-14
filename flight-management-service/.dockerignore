@@ -8,5 +8,5 @@ Dockerfile
 logs
 *.log
 coverage
-.nyc_output
+
 

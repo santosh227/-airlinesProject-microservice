@@ -7,7 +7,7 @@ const bookingRoutes = require('./v1/bookingRoutes');
 router.get('/info', infoController);
 router.use('/v1/bookings', bookingRoutes);
 
-router.get('/v1/health',(req,res)=>{
+router.get('/v1/boooking/health',(req,res)=>{
     res.status(200).json({
         success: true,
         message : "flight booking  service is working perfectly",

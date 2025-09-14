@@ -20,7 +20,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes); // optional
 
 // Health check
-app.get('/api/v1/health', (req, res) => {
+app.get('/api/auth/health', (req, res) => {
   res.json({
     success: true,
     status: 'healthy',

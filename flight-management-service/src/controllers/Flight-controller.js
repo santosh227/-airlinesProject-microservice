@@ -472,6 +472,8 @@ const releaseSeats = async (req, res) => {
   }
 };
 
+
+
 module.exports = {
   createFlight,
   getAllFlights,
@@ -479,5 +481,5 @@ module.exports = {
   checkFlightAvailability,
   bookSeats,
   getAllFlightsByFilter,
-  releaseSeats,
+  releaseSeats
 };

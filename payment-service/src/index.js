@@ -37,15 +37,7 @@ mongoose.connect(process.env.MONGO_URI)
 
 
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Payment Service is running',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0'
-  });
-});
+
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
@@ -56,7 +48,5 @@ app.use('*', (req, res) => {
 // DB connection listen 
 app.listen(PORT, () => {
   console.log(` Payment Service running on port ${PORT}`);
-  console.log(` Environment: ${process.env.NODE_ENV}`);
-  console.log(` Health check: http://localhost:${PORT}/health`);
   console.log(` Webhook URL: http://localhost:${PORT}/api/v1/payments/webhook`);
 });

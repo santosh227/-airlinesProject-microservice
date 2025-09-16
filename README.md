@@ -27,7 +27,31 @@ HTTPS encryption for secure communication
 POSTMAN API Documentation Link : 
   http://bit.ly/3VVkoEJ
 
+Docker Hub Repository :
+ https://hub.docker.com/r/santoshkumar42/airline-booking-microservices/tags
 
+ Pull Individual Services:
+ 
+ Authentication Service : 
+```
+ docker pull santoshkumar42/airline-booking-microservices:auth-service
+
+```
+ Flight Management Service : 
+```
+ docker pull santoshkumar42/airline-booking-microservices:flight-service
+
+```
+ Flight Booking Service : 
+```
+ docker pull santoshkumar42/airline-booking-microservices:booking-service
+
+```
+ Payment Service : 
+```
+ docker pull santoshkumar42/airline-booking-microservices:payment-service
+
+``` 
 Services URL's : 
 
 Auth Service :
